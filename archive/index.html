@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>李箱 作品目錄</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans+KR:wght@400;600&family=Nanum+Myeongjo:wght@700;800&display=swap">
+<style>
+/* Layout: 파란 도면 위에 흰 격자선. 작품 하나 = 흰 사각 픽셀 하나. 목록 → 원문 상세는 같은 페이지 안에서 #w번호 로 이동. */
+:root{
+  --blue:#2236D6;
+  --white:#FFFFFF;
+  --line:rgba(255,255,255,.55);
+  --f-serif:"Nanum Myeongjo","Batang","AppleMyungjo",serif;
+  --f-sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--blue);color:var(--white)}
+body{font-family:var(--f-sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--white)}
+a:focus-visible,button:focus-visible,textarea:focus-visible{outline:2px solid var(--white);outline-offset:3px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.wrap{max-width:1320px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.grid{border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.row{border-bottom:1px solid var(--line)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.it{font-family:var(--f-mono);font-style:italic}
+
+/* 상단 */
+.top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-bottom:1px solid var(--line)}
+.top > div{padding-block:40px;padding-inline:24px;border-right:1px solid var(--line);min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:32px}
+.top > div:last-child{border-right:0}
+.top h1{margin:0;font-family:var(--f-serif);font-weight:800;font-size:clamp(56px,9vw,128px);line-height:1;letter-spacing:-2px}
+.top .sub{margin:16px 0 0;font-size:14px;max-width:420px}
+.vert{writing-mode:vertical-rl;font-size:13px;letter-spacing:.04em;white-space:nowrap}
+.stats{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:11px}
+.stats span{display:inline-flex;align-items:center;gap:8px}
+.sq{display:inline-block;width:10px;height:10px;flex:0 0 auto}
+.sq.ws{background:var(--white)}
+.sq.nm{border:1.5px solid var(--white)}
+.sq.no{width:4px;height:4px;background:var(--white);margin:3px}
+.sq.mine{background:var(--white);box-shadow:0 0 0 2px var(--blue),0 0 0 3.5px var(--white)}
+
+.field{display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start}
+.field a{display:flex;align-items:center;justify-content:center;width:14px;height:14px;text-decoration:none}
+.field a:hover .sq,.field a:focus-visible .sq{transform:scale(1.6)}
+.field .gap{flex-basis:100%;height:8px}
+.field .lab{flex-basis:100%;font-size:11px;margin-top:4px}
+
+/* 필터 */
+.bar{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.bar .grp{display:flex;flex-wrap:wrap;border-right:1px solid var(--line)}
+.bar button{min-height:44px;padding:0 14px;font-size:13px;font-weight:600;border-right:1px solid var(--line)}
+.bar .grp button:last-child{border-right:0}
+.bar button[aria-pressed="true"]{background:var(--white);color:var(--blue)}
+.bar .count{margin-left:auto;display:flex;align-items:center;padding:0 16px;font-size:12px}
+
+/* 목록 */
+.sec h2{margin:0;padding:56px 24px 16px;font-family:var(--f-serif);font-weight:800;font-size:15px;display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line)}
+.sec h2 small{font-family:var(--f-mono);font-weight:400;font-size:11px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px;align-items:baseline;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.22);min-height:52px}
+.item > *{padding:14px 24px;min-width:0}
+.item .no{display:none}
+.item .t{font-family:var(--f-serif);font-weight:700;font-size:18px;line-height:1.35}
+.item .t em{font-style:normal;font-size:13px;margin-left:8px;opacity:.75}
+.item .c{font-family:var(--f-mono);font-size:12px;line-height:1.5}
+.item .s{align-self:center}
+.item .s{display:flex;justify-content:center}
+.item:hover,.item:focus-visible{background:var(--white);color:var(--blue)}
+.item:hover .sq.ws,.item:focus-visible .sq.ws,.item:hover .sq.no,.item:focus-visible .sq.no,.item:hover .sq.mine,.item:focus-visible .sq.mine{background:var(--blue)}
+.item:hover .sq.nm,.item:focus-visible .sq.nm{border-color:var(--blue)}
+.empty{padding:40px 20px;font-size:14px}
+
+/* 상세 */
+.detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);border-bottom:1px solid var(--line)}
+.detail > div{padding:28px 20px;min-width:0}
+.detail > div:first-child{border-right:1px solid var(--line)}
+.back{display:inline-flex;align-items:center;min-height:44px;font-size:13px;font-weight:600;text-decoration:none;border:1px solid var(--white);padding:0 14px}
+.back:hover{background:var(--white);color:var(--blue)}
+.dt{margin:28px 0 0;font-family:var(--f-serif);font-weight:800;font-size:clamp(34px,5vw,64px);line-height:1.1;text-wrap:balance}
+.dorig{margin:8px 0 0;font-family:var(--f-serif);font-weight:700;font-size:18px}
+.meta{display:grid;grid-template-columns:72px minmax(0,1fr);margin:28px 0 0;border-top:1px solid var(--line)}
+.meta dt,.meta dd{margin:0;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.meta dt{font-family:var(--f-mono);font-size:12px}
+.links{display:flex;flex-direction:column;gap:8px;margin-top:24px}
+.links a{display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--white);text-decoration:none;font-weight:600;font-size:14px}
+.links a:hover{background:var(--white);color:var(--blue)}
+.state{display:inline-flex;align-items:center;gap:10px;margin-top:20px;font-size:13px;font-weight:600}
+.texthead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
+.texthead label{font-family:var(--f-serif);font-weight:800;font-size:22px}
+textarea{width:100%;min-height:62vh;box-sizing:border-box;background:transparent;color:var(--white);border:1px solid var(--white);padding:18px;font-family:var(--f-serif);font-weight:700;font-size:18px;line-height:1.9;resize:vertical;word-break:keep-all;overflow-wrap:anywhere}
+textarea::placeholder{color:rgba(255,255,255,.7)}
+.note{margin:10px 0 0;font-size:12px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.tools button{min-height:44px;padding:0 16px;border:1px solid var(--white);font-size:13px;font-weight:600}
+.tools button:hover{background:var(--white);color:var(--blue)}
+
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:20px;font-size:12px}
+
+@media (max-width:820px){
+  .top{grid-template-columns:minmax(0,1fr)}
+  .top > div{border-right:0;border-bottom:1px solid var(--line)}
+  .top > div:last-child{display:none}
+  .item{grid-template-columns:minmax(0,1fr) 40px}
+  .item .c{grid-column:1 / 2;padding-top:0}
+  .item .s{grid-row:1 / 3;grid-column:2}
+  .item > *{padding-inline:16px}
+  .detail{grid-template-columns:minmax(0,1fr)}
+  .detail > div:first-child{border-right:0;border-bottom:1px solid var(--line)}
+  .bar .count{margin-left:0;width:100%;padding:10px 16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="grid" id="app"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* 출처: 나무위키 「이상(작가)/작품 목록」 (2026-10-25 열람). 한 줄 = 제목|원제|연도|발표지|비고|원문링크|언어
+   원문링크: ws = 위키문헌 원문, nm:문서명 = 나무위키 문서, 둘 다면 ws+nm:문서명, 비어 있으면 페이지 내 링크 없음
+   언어: 비워두면 비고의 '일어/일문'으로 판정 */
+const RAW = {
+'詩': [
+'이상한 가역반응|異常ナ可逆反應|1931|조선과건축 7월호|일어시|ws+nm:이상한 가역반응',
+'파편의 경치|破片ノ景色|1931|조선과건축 7월호|일어시|ws',
+'▽의 유희|▽ノ遊戯|1931|조선과건축 7월호|일어시|ws',
+'수염|ひげ|1931|조선과건축 7월호|일어시|ws',
+'BOITEUXㆍBOITEUSE||1931|조선과건축 7월호|일어시|ws',
+'공복|空腹|1931|조선과건축 7월호|일어시|ws',
+'조감도|鳥瞰圖|1931|조선과건축 8월호|일어시 · 연작시|nm:조감도',
+'이인....1....||1931|—|「조감도」 연작||일',
+'이인....2....||1931|—|「조감도」 연작||일',
+'신경질적으로 비만한 삼각형||1931|—|「조감도」 연작||일',
+'LE URINE||1931|—|「조감도」 연작||일',
+'얼굴||1931|—|「조감도」 연작||일',
+'운동||1931|—|「조감도」 연작|nm:운동(이상)|일',
+'광녀의 고백||1931|—|「조감도」 연작||일',
+'흥행물천사||1931|—|「조감도」 연작||일',
+'삼차각설계도|三次角設計図|1931|조선과건축 10월호|일어시 · 연작시|ws+nm:삼차각설계도',
+'선에 관한 각서 1||1931|—|「삼차각설계도」 연작||일',
+'선에 관한 각서 2||1931|—|「삼차각설계도」 연작||일',
+'선에 관한 각서 3||1931|—|「삼차각설계도」 연작||일',
+'선에 관한 각서 4||1931|—|「삼차각설계도」 연작||일',
+'선에 관한 각서 5||1931|—|「삼차각설계도」 연작||일',
+'선에 관한 각서 6||1931|—|「삼차각설계도」 연작||일',
+'선에 관한 각서 7||1931|—|「삼차각설계도」 연작||일',
+'건축무한육면각체|建築無限六面角体|1932|조선과건축 7월호|일어시 · 연작시|ws+nm:건축무한육면각체',
+'AU MAGASIN DE NOUVEAUTES||1932|—|「건축무한육면각체」 첫 번째 시||일',
+'열하약도 No.2 (미정교)||1932|—|「건축무한육면각체」 연작||일',
+'진단 0:1||1932|—|「건축무한육면각체」 연작||일',
+'이십이년||1932|—|「건축무한육면각체」 연작||일',
+'출판법||1932|—|「건축무한육면각체」 연작||일',
+'차8씨의 출발||1932|—|「건축무한육면각체」 연작||일',
+'대낮||1932|—|「건축무한육면각체」 연작||일',
+'꽃나무||1933|가톨릭청년 7월호|처음 발표한 한글 시|',
+'이런시||1933|가톨릭청년 7월호||nm:이런 시',
+'1933, 6, 1|一九三三, 六, 一|1933|가톨릭청년 7월호||',
+'거울||1933|가톨릭청년 10월호||nm:거울(이상)',
+'보통기념||1934|월간매신 6월호||nm:보통기념(이상)',
+'오감도|烏瞰圖|1934|조선중앙일보|연작시|nm:오감도',
+'시제일호||1934|조선중앙일보 7.24|「오감도」|',
+'시제이호||1934|조선중앙일보 7.25|「오감도」|',
+'시제삼호||1934|조선중앙일보 7.25|「오감도」|',
+'시제사호||1934|조선중앙일보 7.28|「오감도」|',
+'시제오호||1934|조선중앙일보 7.28|「오감도」|',
+'시제육호||1934|조선중앙일보 7.31|「오감도」|',
+'시제칠호||1934|조선중앙일보 8.2|「오감도」|',
+'시제팔호 해부||1934|조선중앙일보 8.3|「오감도」|',
+'시제구호 총구||1934|조선중앙일보 8.3|「오감도」|',
+'시제십호 나비||1934|조선중앙일보 8.3|「오감도」|',
+'시제십일호||1934|조선중앙일보 8.4|「오감도」|',
+'시제십이호||1934|조선중앙일보 8.4|「오감도」|',
+'시제십삼호||1934|조선중앙일보 8.7|「오감도」|',
+'시제십사호||1934|조선중앙일보 8.7|「오감도」|',
+'시제십오호||1934|조선중앙일보 8.8|「오감도」 · 연재 마지막 편|',
+'ㆍ소ㆍ영ㆍ위ㆍ제ㆍ|素ㆍ榮ㆍ爲ㆍ題|1934|중앙 9월호||ws',
+'정식||1935|가톨릭청년 4월호||',
+'지비|紙碑|1935|조선중앙일보 9.15||',
+'지비 — 어디갔는지모르는안해||1936|중앙 1월호||',
+'역단|易斷|1936|가톨릭청년 2월호||nm:역단',
+'화로||1936|—|「역단」 연작|',
+'아츰||1936|—|「역단」 연작|',
+'행로||1936|—|「역단」 연작|',
+'가정||1936|—||nm:가정(시)',
+'역단||1936|—|연작시 (목록에 별도 항목)|',
+'가외가전|街外街傳|1936|시와소설 3월호||nm:가외가전',
+'명경|明鏡|1936|여성 5월호||',
+'위독|危篤|1936|조선일보|연작시|nm:위독',
+'금제||1936|조선일보 10.4|「위독」|',
+'추구||1936|조선일보 10.4|「위독」|',
+'침몰||1936|조선일보 10.4|「위독」|',
+'절벽||1936|조선일보 10.6|「위독」|',
+'백화||1936|조선일보 10.6|「위독」|',
+'문벌||1936|조선일보 10.6|「위독」|',
+'위치||1936|조선일보 10.8|「위독」|',
+'매춘||1936|조선일보 10.8|「위독」|',
+'생애||1936|조선일보 10.8|「위독」|',
+'내부||1936|조선일보 10.9|「위독」|',
+'육친||1936|조선일보 10.9|「위독」|',
+'자상||1936|조선일보 10.9|「위독」|',
+'I WED A TOY BRIDE||1936|삼사문학 10월호||ws',
+'파첩|破帖|1937|자오선 10월호|사후 발표|',
+'무제||1938|맥 10월호|사후 발표 · 생전에 제목 없음|',
+'무제(기이)||1938|맥 12월호|사후 발표 · 전집(1) 「이유 이전」|',
+'꿈||1940|젖빛 구름(시집)|사후 발표 · 일어시 · 김소운 편|',
+'한 개의 밤||1940|젖빛 구름(시집)|사후 발표 · 일어시 · 김소운 편|',
+'척각||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'거리||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'수인이 만들은 소정원||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'육친의 장||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'내과||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'골편에 관한 무제||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'가구의 추위||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'아침||1956|이상전집|사후 발표 · 일어시 · 임종국 편|',
+'최후||1956|이상전집|사후 발표 · 일어시 · 임종국 편|'
+],
+'小說': [
+'12월 12일||1930|조선 2~12월호|장편소설 · 등단작|ws',
+'지도의 암실||1932|조선 3월호|필명 「비구」|ws',
+'휴업과 사정||1932|조선 4월호|필명 「보산」 · 작가 논란|ws',
+'지팽이 역사|轢死|1934|월간매신 8월호||ws',
+'지주회시|蜘蛛會豕|1936|중앙 6월호||ws',
+'날개||1936|조광 9월호||nm:날개(소설)',
+'봉별기||1936|여성 12월호||ws',
+'동해|童骸|1937|조광 2월호||',
+'황소와 독개비||1937|매일신보 3.5~3.9|동화 · 저자 논란|',
+'종생기||1937|조광 5월호||ws',
+'환시기||1938|청색지 6월호|사후 발표|',
+'실화||1939|문장 3월호|사후 발표|',
+'단발||1939|조선문학 4월호|사후 발표|',
+'김유정||1939|청색지 5월호|사후 발표|'
+],
+'隨筆': [
+'혈서삼태|血書三態|1934|신여성 6월호||ws',
+'산책의 가을||1934|신동아 10월호||',
+'현대미술의 요람||1935|매일신보 3.14~3.23|저자 논란|',
+'산촌여정|山村餘情|1935|매일신보 9.27~10.11||ws',
+'배의 역사||1935|신아동 10월호|일문|',
+'문학을 버리고 문화를 상상할 수 없다||1936|조선중앙일보 1.6||',
+'나의 애송시||1936|중앙 1월호||',
+'논단시감||1936|조선일보 1.24~1.28|저자 논란|',
+'서망율도|西望栗島|1936|조광 3월호||',
+'조춘점묘|早春點描|1936|매일신보 3.3~3.26||',
+'편집후기||1936|시와소설 3월호||',
+'여상 사제|女像四題|1936|여성 4월호||',
+'내가 좋아하는 화초와 내 집의 화초||1936|조광 5월호||',
+'약수||1936|중앙 7월호||ws',
+'EPIGRAM||1936|여성 8월호||ws',
+'아름다운 조선말||1936|중앙 9월호||',
+'행복||1936|여성 10월호||',
+'가을의 탐승처|探勝處|1936|조광 10월호||',
+'추등잡필|秋燈雜筆|1936|매일신보 10.14~10.28||',
+'19세기식||1937|삼사문학 4월호||ws',
+'공포의 기록||1937|매일신보 4.25~5.15|전집마다 수필/소설 분류가 다름|',
+'권태||1937|조선일보 5.4~5.11||nm:권태(동음이의어)',
+'슬픈 이야기||1937|조광 6월호||ws',
+'오감도 작자의 말||1937|조광 6월호|미발표|',
+'문학과 정치||1938|사해공론 7월호|사후 발표|',
+'실락원||1939|조광 2월호|사후 발표 · 전집(4)은 시로 분류|ws',
+'병상 이후||1939|청색지 5월호|사후 발표|',
+'동경|東京|1939|문장 5월호|사후 발표|ws',
+'최저낙원||1939|조선문학 5월호|사후 발표 · 전집(4)은 시로 분류|ws'
+],
+'發掘': [
+'무제||1960|현대문학 11월호|일어시|',
+'1931년 (작품 제1번)||1960|현대문학 11월호|일어시|',
+'얼마 안되는 변해||1960|현대문학 11월호|일문수필|',
+'무제||1960|현대문학 11월호|일문|',
+'무제||1960|현대문학 11월호|일문수필|',
+'이 아해들에게 장난감을 주라||1960|현대문학 12월호|일문수필|',
+'모색||1960|현대문학 12월호|일문수필|',
+'무제||1960|현대문학 12월호|일문수필|',
+'구두||1961|신동아 1월호|일문|',
+'어리석은 석반||1961|현대문학 1월호|일문수필|',
+'습작 쇼오윈도우 수점||1961|현대문학 2월호|일어시|',
+'무제||1966|현대문학 7월호|일문|',
+'애야||1966|현대문학 7월호|일문|',
+'회한의 장||1976|문학사상 6월호|일어시|',
+'단장||1976|문학사상 7월호|일문|',
+'첫번째 방랑||1976|문학사상 7월호|일문수필|',
+'불행한 계승||1976|문학사상 7월호|일문소설|',
+'객혈의 아침||1976|문학사상 7월호|일문|',
+'황의 기 (작품 제2번)||1976|문학사상 7월호|일문|',
+'작품 제3번||1976|문학사상 7월호|일문|',
+'요다 준이치|與田準一|1976|문학사상 7월호|일어시 · 일본 시인 이름|',
+'츠키하라 도이치로|月原橙一郞|1976|문학사상 7월호|일어시 · 일본 인명|',
+'공포의 기록(서장)||1986|문학사상 10월호|일문|',
+'공포의 성채||1986|문학사상 10월호|일문수필|',
+'야색||1986|문학사상 10월호|일문수필|',
+'단상||1986|문학사상 10월호|일문|',
+'낙랑 파라의 새로움||2000|한국문학연구|일문수필 · 1991년 일본에서 처음 공개|'
+],
+'書簡·其他': [
+'동생 옥희 보아라||1936|중앙 9월호|전집(1) 「매상(妹像)」|',
+'사신(2)||—|여성지|김기림에게 보낸 편지 · 발표 시기 논란|',
+'사신(3)||—|여성지|김기림에게 보낸 편지 · 발표 시기 논란|',
+'사신(4)||—|여성지|김기림에게 보낸 편지 · 발표 시기 논란|',
+'사신(5)||—|여성지|김기림에게 보낸 편지 · 발표 시기 논란|',
+'사신(6)||—|여성지|김기림에게 보낸 편지 · 발표 시기 논란|',
+'사신(7)||—|여성지|김기림에게 보낸 편지 · 발표 시기 논란|',
+'사신(8)||—|여성지|김기림에게 보낸 편지 · 발표 시기 논란|',
+'사신(9)||—|—|안회남에게 보낸 편지|',
+'사신(10)||—|—|남동생에게 보낸 엽서 · 고국에 보낸 마지막 편지|',
+'권두언 1||1932|조선과건축 6~11월호|일문 · R 이니셜|',
+'권두언 2||1932|조선과건축 6~11월호|일문 · R 이니셜|',
+'권두언 3||1932|조선과건축 6~11월호|일문 · R 이니셜|',
+'권두언 4||1932|조선과건축 6~11월호|일문 · R 이니셜|',
+'권두언 5||1932|조선과건축 6~11월호|일문 · R 이니셜|',
+'권두언 6||1932|조선과건축 6~11월호|일문 · R 이니셜|',
+'권두언 7||1932|조선과건축 12월호|일문 · 전집(2)·(3)에서 누락|',
+'권두언 8||1933|조선과건축 5~12월호|일문|',
+'권두언 9||1933|조선과건축 5~12월호|일문|',
+'권두언 10||1933|조선과건축 5~12월호|일문|',
+'권두언 11||1933|조선과건축 5~12월호|일문|',
+'권두언 12||1933|조선과건축 5~12월호|일문|',
+'권두언 13||1933|조선과건축 5~12월호|일문|',
+'권두언 14||1933|조선과건축 5~12월호|일문|',
+'아포리즘||1936~1939|시와소설 3월호 · 문장 7월호 · 경성고공 사진첩||',
+'낙서 (3편)||1978|이상시전작집 화보|일문|',
+'낙서||1976|독서생활 11월호|일문 · 쥘 르나르 책 속표지|'
+]
+};
+const SEC_KO = { '詩': '시', '小說': '소설', '隨筆': '수필', '發掘': '1960년 이후 발굴', '書簡·其他': '편지 · 기타' };
+const SOURCE_URL = 'https://namu.wiki/w/%EC%9D%B4%EC%83%81(%EC%9E%91%EA%B0%80)/%EC%9E%91%ED%92%88%20%EB%AA%A9%EB%A1%9D';
+
+/* 데이터 만들기 */
+const WORKS = [];
+Object.keys(RAW).forEach(sec => {
+  RAW[sec].forEach(line => {
+    const p = line.split('|');
+    const src = p[5] || '';
+    const ws = src.indexOf('ws') === 0;
+    const nmMatch = src.match(/nm:(.+)$/);
+    const lang = p[6] || (/일어|일문/.test(p[4] || '') ? '일' : '국');
+    WORKS.push({
+      id: 'w' + (WORKS.length + 1), no: WORKS.length + 1, sec,
+      title: p[0], orig: p[1] || '', year: p[2], venue: p[3], note: p[4] || '',
+      ws, nm: nmMatch ? nmMatch[1] : '', lang
+    });
+  });
+});
+
+/* 원문 위치
+   WS: 위키문헌 「저자:이상」 목록에 실린 작품 → [제목, 연도, 위키문헌 제목, 주소 확인 여부(1=정확한 문서 주소 확인)]
+   GONGU: 공유마당(한국저작권위원회 만료 저작물) → [제목, 연도, wrtSn]  (2026-10-25 검색으로 확인) */
+const WS = [
+['이상한 가역반응','1931','이상한 가역반응'],['파편의 경치','1931','파편의 경치'],['▽의 유희','1931','▽의 유희'],['수염','1931','수염'],
+['BOITEUXㆍBOITEUSE','1931','BOITEUX・BOITEUSE'],['공복','1931','공복'],['조감도','1931','조감도'],['삼차각설계도','1931','삼차각설계도'],
+['건축무한육면각체','1932','건축무한육면각체'],['꽃나무','1933','꽃나무'],['이런시','1933','이런 시',1],['1933, 6, 1','1933','1933, 6, 1'],
+['거울','1933','거울'],['보통기념','1934','보통기념'],['오감도','1934','오감도',1],['ㆍ소ㆍ영ㆍ위ㆍ제ㆍ','1934','소영위제',1],['정식','1935','정식'],
+['지비','1935','지비'],['지비 — 어디갔는지모르는안해','1936','지비'],['가외가전','1936','가외가전'],['명경','1936','명경'],['위독','1936','위독',1],
+['I WED A TOY BRIDE','1936','I WED A TOY BRIDE'],['파첩','1937','파첩'],['무제','1938','무제 1'],['무제(기이)','1938','무제 2'],['한 개의 밤','1940','한 개의 밤'],
+['척각','1956','척각'],['거리','1956','거리'],['수인이 만들은 소정원','1956','수인이 만들은 소정원'],['육친의 장','1956','육친의 장'],['내과','1956','내과'],
+['골편에 관한 무제','1956','골편에 관한 무제'],['가구의 추위','1956','가구의 추위'],['아침','1956','아침'],['최후','1956','최후'],
+['12월 12일','1930','12월 12일'],['지도의 암실','1932','지도의 암실'],['휴업과 사정','1932','휴업과 사정'],['지팽이 역사','1934','지팽이 역사'],
+['지주회시','1936','지주회시',1],['날개','1936','날개',1],['봉별기','1936','봉별기',1],['종생기','1937','종생기',1],['동해','1937','동해'],
+['황소와 독개비','1937','황소와 도깨비'],['공포의 기록','1937','공포의 기록'],
+['혈서삼태','1934','혈서삼태',1],['산책의 가을','1934','산책의 가을'],['현대미술의 요람','1935','현대미술의 요람'],['산촌여정','1935','산촌여정',1],
+['배의 역사','1935','배의 역사'],['문학을 버리고 문화를 상상할 수 없다','1936','문학을 버리고 문화를 상상할 수 없다'],['나의 애송시','1936','나의 애송시'],
+['논단시감','1936','논단시감'],['서망율도','1936','서망율도'],['조춘점묘','1936','조춘점묘'],['편집후기','1936','시와 소설 편집후기'],['여상 사제','1936','여상 사제'],
+['내가 좋아하는 화초와 내 집의 화초','1936','내가 좋아하는 화초와 내 집의 화초'],['약수','1936','약수'],['EPIGRAM','1936','EPIGRAM',1],
+['아름다운 조선말','1936','아름다운 조선말'],['행복','1936','행복'],['가을의 탐승처','1936','가을의 탐승처'],['추등잡필','1936','추등잡필'],
+['19세기식','1937','19세기식'],['권태','1937','권태',1],['슬픈 이야기','1937','슬픈 이야기 (이상)',1],['문학과 정치','1938','문학과 정치'],
+['실락원','1939','실낙원 (이상)',1],['병상 이후','1939','병상 이후'],['동경','1939','동경'],['최저낙원','1939','최저낙원',1],
+['무제','1960','무제 3'],['1931년 (작품 제1번)','1960','1931년 (작품 제1번)'],['습작 쇼오윈도우 수점','1961','습작 쇼윈도 수점'],['회한의 장','1976','회한의 장'],
+['요다 준이치','1976','요다 준이치'],['츠키하라 도이치로','1976','쓰키하라 도이치로'],['객혈의 아침','1976','객혈의 아침'],['불행한 계승','1976','불행한 계승'],
+['애야','1966','애야'],['첫번째 방랑','1976','첫번째 방랑'],['황의 기 (작품 제2번)','1976','황의 기 (작품 제2번)'],['작품 제3번','1976','작품 제3번'],
+['공포의 성채','1986','공포의 성채'],['야색','1986','야색'],['낙랑 파라의 새로움','2000','낙랑 파라의 새로움']
+];
+const GONGU = [
+['이상한 가역반응','1931','9000928'],['조감도','1931','13313926'],['삼차각설계도','1931','9001935'],['건축무한육면각체','1932','9000911'],
+['거울','1933','9000910'],['가외가전','1936','9000905'],['위독','1936','13313925'],['추구','1936','9000943'],['I WED A TOY BRIDE','1936','9000951'],
+['12월 12일','1930','9000975'],['날개','1936','9000973'],['봉별기','1936','9000974'],['김유정','1939','9029294'],
+['조춘점묘','1936','9029335'],['편집후기','1936','13313921'],['아름다운 조선말','1936','13313922'],['권태','1937','9029342'],
+['동생 옥희 보아라','1936','9029351']
+];
+const usedWS = new Set();
+WORKS.forEach(w => {
+  const a = WS.find(r => r[0] === w.title && r[1] === w.year && !usedWS.has(r));
+  if (a) { usedWS.add(a); w.ws = true; w.wsTitle = a[2]; w.wsExact = !!a[3]; }
+  else if (w.ws) { w.wsTitle = w.title; }
+  const g = GONGU.find(r => r[0] === w.title && r[1] === w.year);
+  if (g) w.gongu = g[2];
+});
+/* 연작의 개별 편: 원문은 부모 작품 문서 안에 실려 있으므로 부모의 원문 링크를 잇는다 */
+WORKS.forEach(w => {
+  const m = (w.note || '').match(/「([^」]+)」/);
+  if (!m || w.ws || w.gongu) return;
+  const parent = WORKS.find(p => p.title === m[1] && p !== w && (p.ws || p.gongu));
+  if (!parent) return;
+  w.parent = parent.title;
+  if (parent.ws) { w.ws = true; w.wsTitle = parent.wsTitle; w.wsExact = parent.wsExact; }
+  if (parent.gongu) w.gongu = parent.gongu;
+});
+
+/* 내가 채운 원문 (이 브라우저에만 저장) */
+const KEY = 'yisang-texts-v1';
+let mine = {};
+try { mine = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { mine = {}; }
+function saveMine() { try { localStorage.setItem(KEY, JSON.stringify(mine)); } catch (e) {} }
+
+function status(w) {
+  if (mine[w.id] && mine[w.id].trim()) return 'mine';
+  if (w.ws || w.gongu) return 'ws';
+  if (w.nm) return 'nm';
+  return 'no';
+}
+const STATUS_LABEL = { mine: '원문 입력됨', ws: '원문 링크 있음', nm: '나무위키 문서만 있음', no: '원문 링크 없음' };
+const wsUrl = w => w.wsExact
+  ? 'https://ko.wikisource.org/wiki/' + encodeURIComponent(w.wsTitle.replace(/ /g, '_'))
+  : 'https://ko.wikisource.org/w/index.php?search=' + encodeURIComponent(w.wsTitle || w.title) + '&go=%EB%B3%B4%EA%B8%B0';
+const wsFind = w => 'https://ko.wikisource.org/w/index.php?search=' + encodeURIComponent(w.title + ' 이상');
+const ggUrl = w => 'https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=' + w.gongu + '&menuNo=200019';
+const nmUrl = w => 'https://namu.wiki/w/' + encodeURIComponent(w.nm);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+/* 상태 */
+let filter = 'all', langF = 'all';
+const app = document.getElementById('app');
+
+function counts() {
+  const c = { mine: 0, ws: 0, nm: 0, no: 0 };
+  WORKS.forEach(w => c[status(w)]++);
+  return c;
+}
+function content(w) {
+  return [w.year, w.venue, w.note, w.lang === '일' ? '일문' : '국문'].filter(x => x && x !== '—').join(' · ');
+}
+
+function renderList() {
+  const c = counts();
+  const shown = WORKS.filter(w => (filter === 'all' || status(w) === filter) && (langF === 'all' || w.lang === langF));
+  let field = '';
+  Object.keys(RAW).forEach((sec, i) => {
+    field += (i ? '<span class="gap"></span>' : '') + '<span class="lab it">' + sec + '</span>';
+    WORKS.filter(w => w.sec === sec).forEach(w => {
+      field += '<a href="#' + w.id + '" aria-label="' + esc(w.title) + ' · ' + STATUS_LABEL[status(w)] + '" title="' + esc(w.title) + '"><span class="sq ' + status(w) + '"></span></a>';
+    });
+  });
+  let html = '<header class="top">'
+    + '<div><h1>李箱</h1>'
+    + '<div class="stats mono">'
+    + '<span><i class="sq ws"></i>원문 링크 ' + c.ws + '</span>'
+    + '<span><i class="sq nm"></i>나무위키 문서 ' + c.nm + '</span>'
+    + '<span><i class="sq no"></i>링크 없음 ' + c.no + '</span>'
+    + (c.mine ? '<span><i class="sq mine"></i>원문 입력됨 ' + c.mine + '</span>' : '')
+    + '</div></div>'
+    + '<div><div class="field" aria-label="작품 전체 지도">' + field + '</div></div>'
+    + '</header>';
+  const fb = (val, label, cur) => '<button type="button" data-f="' + val + '" aria-pressed="' + (cur === val) + '">' + label + '</button>';
+  const lb = (val, label) => '<button type="button" data-l="' + val + '" aria-pressed="' + (langF === val) + '">' + label + '</button>';
+
+  Object.keys(RAW).forEach(sec => {
+    const list = shown.filter(w => w.sec === sec);
+    if (!list.length) return;
+    html += '<section class="sec"><h2>' + sec + '<small>' + SEC_KO[sec] + ' · ' + list.length + '편</small></h2>';
+    list.forEach(w => {
+      html += '<a class="item" href="#' + w.id + '">'
+        + '<span class="no mono">' + String(w.no).padStart(3, '0') + '</span>'
+        + '<span class="t">' + esc(w.title) + (w.orig ? '<em>' + esc(w.orig) + '</em>' : '') + '</span>'
+        + '<span class="c">' + esc(content(w)) + '</span>'
+        + '<span class="s" title="' + STATUS_LABEL[status(w)] + '"><i class="sq ' + status(w) + '"></i></span></a>';
+    });
+    html += '</section>';
+  });
+  if (!shown.length) html += '<p class="empty">이조건에맞는글이없소.</p>';
+  html += footer();
+  app.innerHTML = html;
+}
+
+function footer() {
+  return '<footer class="mono"><span>목록 출처 · <a href="' + SOURCE_URL + '" target="_blank" rel="noopener">나무위키 「이상(작가)/작품 목록」</a> · 2026.10.25 열람</span>'
+    + '<span class="it">' + WORKS.length + '編 · 1930—2000 發表</span></footer>';
+}
+
+function renderDetail(w) {
+  const st = status(w);
+  let links = '';
+  const via = w.parent ? ' · 「' + esc(w.parent) + '」 안에 수록' : '';
+  if (w.ws) links += '<a href="' + wsUrl(w) + '" target="_blank" rel="noopener">위키문헌 원문' + via + '<span aria-hidden="true">↗</span></a>';
+  if (w.gongu) links += '<a href="' + ggUrl(w) + '" target="_blank" rel="noopener">공유마당 원문' + via + '<span aria-hidden="true">↗</span></a>';
+  if (w.nm) links += '<a href="' + nmUrl(w) + '" target="_blank" rel="noopener">나무위키 문서<span aria-hidden="true">↗</span></a>';
+  if (!w.ws && !w.gongu) links += '<a href="' + wsFind(w) + '" target="_blank" rel="noopener">위키문헌에서 찾아보기<span aria-hidden="true">↗</span></a>';
+  const idx = WORKS.indexOf(w), prev = WORKS[idx - 1], next = WORKS[idx + 1];
+  app.innerHTML = '<div class="detail">'
+    + '<div><a class="back" href="#list">← 목록으로</a>'
+    + '<h1 class="dt">' + esc(w.title) + '</h1>' + (w.orig ? '<p class="dorig">' + esc(w.orig) + '</p>' : '')
+    + '<dl class="meta">'
+    + '<dt>分類</dt><dd>' + w.sec + ' · ' + SEC_KO[w.sec] + '</dd>'
+    + '<dt>年度</dt><dd>' + esc(w.year) + '</dd>'
+    + '<dt>誌面</dt><dd>' + esc(w.venue) + '</dd>'
+    + '<dt>言語</dt><dd>' + (w.lang === '일' ? '일문' : '국문') + '</dd>'
+    + (w.note ? '<dt>備考</dt><dd>' + esc(w.note) + '</dd>' : '')
+    + '<dt>番號</dt><dd class="mono">' + String(w.no).padStart(3, '0') + ' / ' + WORKS.length + '</dd>'
+    + '</dl>'
+    + '<span class="state"><i class="sq ' + st + '"></i>' + STATUS_LABEL[st] + '</span>'
+    + '<div class="links">' + links + '</div>'
+    + '<div class="tools">'
+    + (prev ? '<a class="back" href="#' + prev.id + '">← ' + esc(prev.title) + '</a>' : '')
+    + (next ? '<a class="back" href="#' + next.id + '">' + esc(next.title) + ' →</a>' : '')
+    + '</div></div>'
+    + '<div><div class="texthead"><label for="txt-' + w.id + '">原文</label><span class="mono" id="cnt">0字</span></div>'
+    + '<textarea id="txt-' + w.id + '" placeholder="이 글의 원문을 여기에 붙여넣으시오. 당시 표기와 띄어쓰기를 그대로 두시오."></textarea>'
+    + '<p class="note">입력한 원문은 이 브라우저에만 저장됩니다. 다 모으면 아래 버튼으로 전체를 JSON으로 복사해 데이터 파일로 옮기세요.</p>'
+    + '<div class="tools"><button type="button" id="copyAll">입력한 원문 전체 JSON 복사</button><span class="mono note" id="copied" aria-live="polite"></span></div>'
+    + '</div></div>' + footer();
+  const ta = document.getElementById('txt-' + w.id), cnt = document.getElementById('cnt');
+  ta.value = mine[w.id] || '';
+  const upd = () => { cnt.textContent = [...ta.value.replace(/\s/g, '')].length + '字'; };
+  upd();
+  ta.addEventListener('input', () => { mine[w.id] = ta.value; if (!ta.value.trim()) delete mine[w.id]; saveMine(); upd(); });
+  document.getElementById('copyAll').addEventListener('click', () => {
+    const out = WORKS.filter(x => mine[x.id]).map(x => ({ no: x.no, sec: x.sec, title: x.title, orig: x.orig, year: x.year, venue: x.venue, lang: x.lang, text: mine[x.id] }));
+    const json = JSON.stringify(out, null, 2);
+    const msg = document.getElementById('copied');
+    const fallback = () => {
+      let box = document.getElementById('jsonOut');
+      if (!box) { box = document.createElement('textarea'); box.id = 'jsonOut'; box.readOnly = true; box.setAttribute('aria-label', '입력한 원문 JSON'); box.style.minHeight = '30vh'; box.style.marginTop = '12px'; msg.parentNode.after(box); }
+      box.value = json; box.select(); msg.textContent = '복사가 막혀 아래 칸에 JSON을 띄웠소. 직접 복사하시오.';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(json).then(() => { msg.textContent = out.length + '편 복사됨'; }, fallback);
+    } else fallback();
+  });
+  window.scrollTo(0, 0);
+}
+
+function route() {
+  const h = location.hash.slice(1);
+  const w = WORKS.find(x => x.id === h);
+  if (w) renderDetail(w); else renderList();
+}
+window.addEventListener('hashchange', route);
+route();
+})();
+</script>
+
+</body>
+</html>
