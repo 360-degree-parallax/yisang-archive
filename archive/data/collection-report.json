@@ -1,0 +1,329 @@
+{
+  "retrievedAt": "2026-10-25",
+  "total": 189,
+  "collected": 129,
+  "pending": [
+    {
+      "id": "w16",
+      "title": "삼차각설계도",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w17",
+      "title": "선에 관한 각서 1",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w18",
+      "title": "선에 관한 각서 2",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w19",
+      "title": "선에 관한 각서 3",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w20",
+      "title": "선에 관한 각서 4",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w21",
+      "title": "선에 관한 각서 5",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w22",
+      "title": "선에 관한 각서 6",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w23",
+      "title": "선에 관한 각서 7",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9001935&menuNo=200019"
+    },
+    {
+      "id": "w24",
+      "title": "건축무한육면각체",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w25",
+      "title": "AU MAGASIN DE NOUVEAUTES",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w26",
+      "title": "열하약도 No.2 (미정교)",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w27",
+      "title": "진단 0:1",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w28",
+      "title": "이십이년",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w29",
+      "title": "출판법",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w30",
+      "title": "차8씨의 출발",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w31",
+      "title": "대낮",
+      "reason": "공유마당 PDF 원본 · 텍스트 전사 필요",
+      "url": "https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=9000911&menuNo=200019"
+    },
+    {
+      "id": "w82",
+      "title": "꿈",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w109",
+      "title": "현대미술의 요람",
+      "reason": "위키문헌 목록에 제목만 있으며 본문 문서 없음"
+    },
+    {
+      "id": "w111",
+      "title": "배의 역사",
+      "reason": "위키문헌 목록에 제목만 있으며 본문 문서 없음"
+    },
+    {
+      "id": "w113",
+      "title": "나의 애송시",
+      "reason": "위키문헌 목록에 제목만 있으며 본문 문서 없음"
+    },
+    {
+      "id": "w114",
+      "title": "논단시감",
+      "reason": "위키문헌 목록에 제목만 있으며 본문 문서 없음"
+    },
+    {
+      "id": "w138",
+      "title": "얼마 안되는 변해",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w139",
+      "title": "무제",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w140",
+      "title": "무제",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w141",
+      "title": "이 아해들에게 장난감을 주라",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w142",
+      "title": "모색",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w143",
+      "title": "무제",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w144",
+      "title": "구두",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w145",
+      "title": "어리석은 석반",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w147",
+      "title": "무제",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w150",
+      "title": "단장",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w158",
+      "title": "공포의 기록(서장)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w161",
+      "title": "단상",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w162",
+      "title": "낙랑 파라의 새로움",
+      "reason": "위키문헌 목록에 제목만 있으며 본문 문서 없음"
+    },
+    {
+      "id": "w164",
+      "title": "사신(2)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w165",
+      "title": "사신(3)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w166",
+      "title": "사신(4)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w167",
+      "title": "사신(5)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w168",
+      "title": "사신(6)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w169",
+      "title": "사신(7)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w170",
+      "title": "사신(8)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w171",
+      "title": "사신(9)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w172",
+      "title": "사신(10)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w173",
+      "title": "권두언 1",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w174",
+      "title": "권두언 2",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w175",
+      "title": "권두언 3",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w176",
+      "title": "권두언 4",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w177",
+      "title": "권두언 5",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w178",
+      "title": "권두언 6",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w179",
+      "title": "권두언 7",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w180",
+      "title": "권두언 8",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w181",
+      "title": "권두언 9",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w182",
+      "title": "권두언 10",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w183",
+      "title": "권두언 11",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w184",
+      "title": "권두언 12",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w185",
+      "title": "권두언 13",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w186",
+      "title": "권두언 14",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w187",
+      "title": "아포리즘",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w188",
+      "title": "낙서 (3편)",
+      "reason": "확인된 본문 출처 없음"
+    },
+    {
+      "id": "w189",
+      "title": "낙서",
+      "reason": "확인된 본문 출처 없음"
+    }
+  ],
+  "summary": {
+    "collected": 129,
+    "pdfTranscriptionNeeded": 16,
+    "missingBody": 5,
+    "missingSource": 39
+  }
+}
