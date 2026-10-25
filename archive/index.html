@@ -87,9 +87,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .meta{display:grid;grid-template-columns:72px minmax(0,1fr);margin:28px 0 0;border-top:1px solid var(--line)}
 .meta dt,.meta dd{margin:0;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
 .meta dt{font-family:var(--f-mono);font-size:12px}
-.links{display:flex;flex-direction:column;gap:8px;margin-top:24px}
-.links a{display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--white);text-decoration:none;font-weight:600;font-size:14px}
-.links a:hover{background:var(--white);color:var(--blue)}
+.links{margin-top:24px;font-size:14px;font-weight:600;line-height:1.8}
+.links a{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.links a:hover{text-decoration-thickness:2px}
+.links .sep{margin:0 10px;font-weight:400}
 .state{display:inline-flex;align-items:center;gap:10px;margin-top:20px;font-size:13px;font-weight:600}
 .texthead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
 .texthead label{font-family:var(--f-serif);font-weight:800;font-size:22px}
@@ -520,12 +521,13 @@ function footer() {
 
 function renderDetail(w) {
   const st = status(w), entry = collected[w.id];
-  let links = '';
+  const L = [];
   const via = w.parent ? ' · 「' + esc(w.parent) + '」 안에 수록' : '';
-  if (entry || w.ws) links += '<a href="' + wsUrl(w) + '" target="_blank" rel="noopener">위키문헌 본문' + via + '<span aria-hidden="true">↗</span></a>';
-  if (w.gongu) links += '<a href="' + ggUrl(w) + '" target="_blank" rel="noopener">공유마당 본문' + via + '<span aria-hidden="true">↗</span></a>';
-  if (w.nm) links += '<a href="' + nmUrl(w) + '" target="_blank" rel="noopener">나무위키 문서<span aria-hidden="true">↗</span></a>';
-  if (!w.ws && !w.gongu) links += '<a href="' + wsFind(w) + '" target="_blank" rel="noopener">위키문헌에서 찾아보기<span aria-hidden="true">↗</span></a>';
+  if (entry || w.ws) L.push('<a href="' + wsUrl(w) + '" target="_blank" rel="noopener">위키문헌 본문' + via + '</a>');
+  if (w.gongu) L.push('<a href="' + ggUrl(w) + '" target="_blank" rel="noopener">공유마당 본문' + via + '</a>');
+  if (w.nm) L.push('<a href="' + nmUrl(w) + '" target="_blank" rel="noopener">나무위키 문서</a>');
+  if (!w.ws && !w.gongu) L.push('<a href="' + wsFind(w) + '" target="_blank" rel="noopener">위키문헌에서 찾아보기</a>');
+  const links = L.join('<span class="sep" aria-hidden="true">/</span>');
   const idx = WORKS.indexOf(w), prev = WORKS[idx - 1], next = WORKS[idx + 1];
   app.innerHTML = '<div class="detail">'
     + '<div>'
