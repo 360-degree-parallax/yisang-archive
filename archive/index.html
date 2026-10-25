@@ -12,9 +12,10 @@
 <style>
 /* Layout: 파란 도면 위에 흰 격자선. 작품 하나 = 흰 사각 픽셀 하나. 목록 → 원문 상세는 같은 페이지 안에서 #w번호 로 이동. */
 :root{
-  --blue:#2236D6;
-  --white:#FFFFFF;
-  --line:rgba(255,255,255,.55);
+  /* 喀血: 검붉은 피 바탕 + 그 보색 청록 글자 (대비 7.1:1). 두 색만 쓴다. */
+  --blue:#7A1424;
+  --white:#66E6D2;
+  --line:rgba(102,230,210,.5);
   --f-serif:"Nanum Myeongjo","Batang","AppleMyungjo",serif;
   --f-sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
@@ -63,7 +64,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 /* 목록 */
 .sec h2{margin:0;padding:56px 24px 16px;font-family:var(--f-serif);font-weight:800;font-size:15px;display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line)}
 .sec h2 small{font-family:var(--f-mono);font-weight:400;font-size:11px}
-.item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px;align-items:baseline;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.22);min-height:52px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px;align-items:baseline;text-decoration:none;border-bottom:1px solid rgba(102,230,210,.22);min-height:52px}
 .item > *{padding:14px 24px;min-width:0}
 .item .no{display:none}
 .item .t{font-family:var(--f-serif);font-weight:700;font-size:18px;line-height:1.35}
@@ -95,14 +96,14 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .texthead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
 .texthead label{font-family:var(--f-serif);font-weight:800;font-size:22px}
 textarea{width:100%;min-height:62vh;box-sizing:border-box;background:transparent;color:var(--white);border:1px solid var(--white);padding:18px;font-family:var(--f-serif);font-weight:700;font-size:18px;line-height:1.9;resize:vertical;word-break:keep-all;overflow-wrap:anywhere}
-textarea::placeholder{color:rgba(255,255,255,.7)}
+textarea::placeholder{color:rgba(102,230,210,.7)}
 .note{margin:10px 0 0;font-size:12px}
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .tools button{min-height:44px;padding:0 16px;border:1px solid var(--white);font-size:13px;font-weight:600}
 .tools button:hover{background:var(--white);color:var(--blue)}
 
 .col2{padding:0!important}
-.body{padding:28px 24px 64px;min-width:0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-family:var(--f-serif);font-weight:700;font-size:19px;line-height:2}
+.body{padding:28px 24px 64px;min-width:0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-family:var(--f-serif);font-weight:700;font-size:20px;line-height:2}
 .body.empty-body{font-family:var(--f-mono);font-weight:400;font-size:12px;line-height:1.6;opacity:.8}
 .source-figures{padding:0 24px 40px}
 ::highlight(glyph){background-color:var(--white);color:var(--blue)}
@@ -548,7 +549,7 @@ function renderDetail(w) {
     + (next ? '<a class="back" href="#' + next.id + '">' + esc(next.title) + ' →</a>' : '')
     + '</div></div>'
     + '<div class="col2"><div class="body" id="body-' + w.id + '"></div>'
-    + (entry?.figures?.length ? '<div class="source-figures">' + entry.figures.map(f => '<figure><img style="max-width:100%;height:auto;background:white" src="' + esc(f.url) + '" alt="' + esc(f.alt || '원문 도형') + '"><figcaption class="note">원문 도형 · 위키문헌</figcaption></figure>').join('') + '</div>' : '')
+    + (entry?.figures?.length ? '<div class="source-figures">' + entry.figures.map(f => '<figure><img style="max-width:100%;height:auto;background:var(--white)" src="' + esc(f.url) + '" alt="' + esc(f.alt || '원문 도형') + '"><figcaption class="note">원문 도형 · 위키문헌</figcaption></figure>').join('') + '</div>' : '')
     + '</div></div>' + footer();
   const bd = document.getElementById('body-' + w.id), txt = textFor(w);
   if (txt.trim()) bd.textContent = txt;
