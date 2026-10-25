@@ -92,6 +92,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .links a{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 .links a:hover{text-decoration-thickness:2px}
 .links .sep{margin:0 10px;font-weight:400}
+.links .pn{display:inline-flex;gap:4px;margin-left:16px;vertical-align:middle}
+.links .pn a,.links .pn span{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;text-decoration:none;font-family:var(--f-mono);font-size:16px}
+.links .pn span{opacity:.35}
+.links .pn a:hover{background:var(--white);color:var(--blue)}
 .state{display:inline-flex;align-items:center;gap:10px;margin-top:20px;font-size:13px;font-weight:600}
 .texthead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
 .texthead label{font-family:var(--f-serif);font-weight:800;font-size:22px}
@@ -511,7 +515,6 @@ function renderList() {
     html += '</section>';
   });
   if (!shown.length) html += '<p class="empty">이조건에맞는글이없소.</p>';
-  html += footer();
   app.innerHTML = html;
 }
 
@@ -529,6 +532,11 @@ function renderDetail(w) {
   if (w.nm) L.push('<a href="' + nmUrl(w) + '" target="_blank" rel="noopener">나무위키 문서</a>');
   if (!w.ws && !w.gongu) L.push('<a href="' + wsFind(w) + '" target="_blank" rel="noopener">위키문헌에서 찾아보기</a>');
   const links = L.join('<span class="sep" aria-hidden="true">/</span>');
+  const idx0 = WORKS.indexOf(w), pw = WORKS[idx0 - 1], nw = WORKS[idx0 + 1];
+  const pn = '<span class="pn">'
+    + (pw ? '<a href="#' + pw.id + '" aria-label="이전 작품 ' + esc(pw.title) + '" title="' + esc(pw.title) + '">&lt;</a>' : '<span aria-hidden="true">&lt;</span>')
+    + (nw ? '<a href="#' + nw.id + '" aria-label="다음 작품 ' + esc(nw.title) + '" title="' + esc(nw.title) + '">&gt;</a>' : '<span aria-hidden="true">&gt;</span>')
+    + '</span>';
   const idx = WORKS.indexOf(w), prev = WORKS[idx - 1], next = WORKS[idx + 1];
   app.innerHTML = '<div class="detail">'
     + '<div>'
@@ -543,14 +551,11 @@ function renderDetail(w) {
     + '<dt>住所</dt><dd><span class="mono">' + w.addr + '</span><br>' + w.addrKo + '</dd>'
     + '<dt>字</dt><dd id="glyphAddr"><span class="mono">' + w.addr + ' / ' + faceOf(w) + ' / 行-列</span><br>글자에 커서를 올리면 그 글자의 자리가 나오오</dd>'
     + '</dl>'
-    + '<div class="links">' + links + '</div>'
-    + '<div class="tools">'
-    + (prev ? '<a class="back" href="#' + prev.id + '">← ' + esc(prev.title) + '</a>' : '')
-    + (next ? '<a class="back" href="#' + next.id + '">' + esc(next.title) + ' →</a>' : '')
-    + '</div></div>'
+    + '<div class="links">' + links + pn + '</div>'
+    + '</div>'
     + '<div class="col2"><div class="body" id="body-' + w.id + '"></div>'
     + (entry?.figures?.length ? '<div class="source-figures">' + entry.figures.map(f => '<figure><img style="max-width:100%;height:auto;background:var(--white)" src="' + esc(f.url) + '" alt="' + esc(f.alt || '원문 도형') + '"><figcaption class="note">원문 도형 · 위키문헌</figcaption></figure>').join('') + '</div>' : '')
-    + '</div></div>' + footer();
+    + '</div></div>';
   const bd = document.getElementById('body-' + w.id), txt = textFor(w);
   if (txt.trim()) bd.textContent = txt;
   else { bd.classList.add('empty-body'); bd.textContent = loadError ? '전문 데이터를 불러오지 못했습니다.' : (pending[w.id]?.reason || '본문 미수록'); }
