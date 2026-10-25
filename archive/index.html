@@ -82,7 +82,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .detail > div:first-child{border-right:1px solid var(--line)}
 .back{display:inline-flex;align-items:center;min-height:44px;font-size:13px;font-weight:600;text-decoration:none;border:1px solid var(--white);padding:0 14px}
 .back:hover{background:var(--white);color:var(--blue)}
-.dt{margin:28px 0 0;font-family:var(--f-serif);font-weight:800;font-size:clamp(34px,5vw,64px);line-height:1.1;text-wrap:balance}
+.dt{margin:0;font-family:var(--f-serif);font-weight:800;font-size:clamp(34px,5vw,64px);line-height:1.1;text-wrap:balance}
 .dorig{margin:8px 0 0;font-family:var(--f-serif);font-weight:700;font-size:18px}
 .meta{display:grid;grid-template-columns:72px minmax(0,1fr);margin:28px 0 0;border-top:1px solid var(--line)}
 .meta dt,.meta dd{margin:0;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
@@ -500,7 +500,7 @@ function renderDetail(w) {
   if (!w.ws && !w.gongu) links += '<a href="' + wsFind(w) + '" target="_blank" rel="noopener">위키문헌에서 찾아보기<span aria-hidden="true">↗</span></a>';
   const idx = WORKS.indexOf(w), prev = WORKS[idx - 1], next = WORKS[idx + 1];
   app.innerHTML = '<div class="detail">'
-    + '<div><a class="back" href="#list">← 목록으로</a>'
+    + '<div>'
     + '<h1 class="dt">' + esc(w.title) + '</h1>' + (w.orig ? '<p class="dorig">' + esc(w.orig) + '</p>' : '')
     + '<dl class="meta">'
     + '<dt>分類</dt><dd>' + w.sec + ' · ' + SEC_KO[w.sec] + '</dd>'
@@ -510,7 +510,6 @@ function renderDetail(w) {
     + (w.note ? '<dt>備考</dt><dd>' + esc(w.note) + '</dd>' : '')
     + '<dt>番號</dt><dd class="mono">' + String(w.no).padStart(3, '0') + ' / ' + WORKS.length + '</dd>'
     + '</dl>'
-    + '<span class="state"><i class="sq ' + st + '"></i>' + STATUS_LABEL[st] + '</span>'
     + '<div class="links">' + links + '</div>'
     + '<div class="tools">'
     + (prev ? '<a class="back" href="#' + prev.id + '">← ' + esc(prev.title) + '</a>' : '')
@@ -518,31 +517,13 @@ function renderDetail(w) {
     + '</div></div>'
     + '<div><div class="texthead"><label for="txt-' + w.id + '">' + (entry?.kind === '한국어 번역문' ? '譯文 · 한국어 번역문' : '原文') + '</label><span class="mono" id="cnt">0字</span></div>'
     + '<textarea id="txt-' + w.id + '" spellcheck="false" placeholder="' + esc(loadError ? '전문 데이터를 불러오지 못했습니다. 새로고침해 주세요.' : (pending[w.id]?.reason || '확인된 전문을 아직 수집하지 못했습니다.')) + '"></textarea>'
-    + (entry ? '<p class="note">' + esc(entry.kind) + ' · ' + esc(entry.attribution) + ' · ' + esc(entry.retrievedAt) + ' 수집<br>' + esc(entry.notes) + '</p>' : '<p class="note">본문 미수록 · ' + esc(pending[w.id]?.reason || '출처 확인 필요') + '</p>')
     + (entry?.figures?.length ? '<div class="source-figures">' + entry.figures.map(f => '<figure><img style="max-width:100%;height:auto;background:white" src="' + esc(f.url) + '" alt="' + esc(f.alt || '원문 도형') + '"><figcaption class="note">원문 도형 · 위키문헌</figcaption></figure>').join('') + '</div>' : '')
-    + '<p class="note">수정 내용은 이 브라우저에 저장됩니다. 저장소에 수록된 본문은 그대로 보존됩니다.</p>'
-    + (entry ? '<button type="button" id="restoreText">수집한 본문으로 되돌리기</button>' : '')
-    + '<div class="tools"><button type="button" id="copyAll">수록·수정 본문 전체 JSON 복사</button><span class="mono note" id="copied" aria-live="polite"></span></div>'
     + '</div></div>' + footer();
   const ta = document.getElementById('txt-' + w.id), cnt = document.getElementById('cnt');
   ta.value = textFor(w);
   const upd = () => { cnt.textContent = [...ta.value.replace(/\s/g, '')].length + '字'; };
   upd();
   ta.addEventListener('input', () => { mine[w.id] = ta.value; saveMine(); upd(); });
-  document.getElementById('restoreText')?.addEventListener('click', () => { delete mine[w.id]; saveMine(); ta.value = textFor(w); upd(); });
-  document.getElementById('copyAll').addEventListener('click', () => {
-    const out = WORKS.filter(x => textFor(x).trim()).map(x => ({ no: x.no, sec: x.sec, title: x.title, orig: x.orig, year: x.year, venue: x.venue, lang: x.lang, text: textFor(x), source: collected[x.id]?.source || null, kind: collected[x.id]?.kind || '직접 입력' }));
-    const json = JSON.stringify(out, null, 2);
-    const msg = document.getElementById('copied');
-    const fallback = () => {
-      let box = document.getElementById('jsonOut');
-      if (!box) { box = document.createElement('textarea'); box.id = 'jsonOut'; box.readOnly = true; box.setAttribute('aria-label', '입력한 원문 JSON'); box.style.minHeight = '30vh'; box.style.marginTop = '12px'; msg.parentNode.after(box); }
-      box.value = json; box.select(); msg.textContent = '복사가 막혀 아래 칸에 JSON을 띄웠소. 직접 복사하시오.';
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(json).then(() => { msg.textContent = out.length + '편 복사됨'; }, fallback);
-    } else fallback();
-  });
   window.scrollTo(0, 0);
 }
 
