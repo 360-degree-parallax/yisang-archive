@@ -100,6 +100,10 @@ textarea::placeholder{color:rgba(255,255,255,.7)}
 .tools button{min-height:44px;padding:0 16px;border:1px solid var(--white);font-size:13px;font-weight:600}
 .tools button:hover{background:var(--white);color:var(--blue)}
 
+.col2{padding:0!important}
+.body{padding:28px 24px 64px;min-width:0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-family:var(--f-serif);font-weight:700;font-size:19px;line-height:2}
+.body.empty-body{font-family:var(--f-mono);font-weight:400;font-size:12px;line-height:1.6;opacity:.8}
+.source-figures{padding:0 24px 40px}
 footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:20px;font-size:12px}
 
 @media (max-width:820px){
@@ -515,15 +519,12 @@ function renderDetail(w) {
     + (prev ? '<a class="back" href="#' + prev.id + '">← ' + esc(prev.title) + '</a>' : '')
     + (next ? '<a class="back" href="#' + next.id + '">' + esc(next.title) + ' →</a>' : '')
     + '</div></div>'
-    + '<div><div class="texthead"><label for="txt-' + w.id + '">' + (entry?.kind === '한국어 번역문' ? '譯文 · 한국어 번역문' : '原文') + '</label><span class="mono" id="cnt">0字</span></div>'
-    + '<textarea id="txt-' + w.id + '" spellcheck="false" placeholder="' + esc(loadError ? '전문 데이터를 불러오지 못했습니다. 새로고침해 주세요.' : (pending[w.id]?.reason || '확인된 전문을 아직 수집하지 못했습니다.')) + '"></textarea>'
+    + '<div class="col2"><div class="body" id="body-' + w.id + '"></div>'
     + (entry?.figures?.length ? '<div class="source-figures">' + entry.figures.map(f => '<figure><img style="max-width:100%;height:auto;background:white" src="' + esc(f.url) + '" alt="' + esc(f.alt || '원문 도형') + '"><figcaption class="note">원문 도형 · 위키문헌</figcaption></figure>').join('') + '</div>' : '')
     + '</div></div>' + footer();
-  const ta = document.getElementById('txt-' + w.id), cnt = document.getElementById('cnt');
-  ta.value = textFor(w);
-  const upd = () => { cnt.textContent = [...ta.value.replace(/\s/g, '')].length + '字'; };
-  upd();
-  ta.addEventListener('input', () => { mine[w.id] = ta.value; saveMine(); upd(); });
+  const bd = document.getElementById('body-' + w.id), txt = textFor(w);
+  if (txt.trim()) bd.textContent = txt;
+  else { bd.classList.add('empty-body'); bd.textContent = loadError ? '전문 데이터를 불러오지 못했습니다.' : (pending[w.id]?.reason || '본문 미수록'); }
   window.scrollTo(0, 0);
 }
 
