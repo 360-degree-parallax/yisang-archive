@@ -110,7 +110,13 @@ textarea::placeholder{color:rgba(102,230,210,.7)}
 .body{padding:28px 24px 64px;min-width:0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-family:var(--f-serif);font-weight:700;font-size:20px;line-height:2}
 .body.empty-body{font-family:var(--f-mono);font-weight:400;font-size:12px;line-height:1.6;opacity:.8}
 .source-figures{padding:0 24px 40px}
-::highlight(glyph){background-color:var(--white);color:var(--blue)}
+/* 원고지 */
+.body{white-space:normal!important;font-size:inherit!important;line-height:1!important}
+.sheet{container-type:inline-size;margin:0 0 40px;content-visibility:auto;contain-intrinsic-size:auto 800px}
+.sheet-no{font-size:11px;margin:0 0 10px;opacity:.8}
+.grid20{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));grid-auto-rows:calc((100cqw - 1px) / 20);border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.cell{display:flex;min-width:0;min-height:0;align-items:center;justify-content:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);font-family:var(--f-serif);font-weight:700;font-size:calc(100cqw / 20 * .56);line-height:1;overflow:hidden;cursor:default;user-select:text}
+.cell.on{background:var(--white);color:var(--blue)}
 /* 맨 위 고정 한 줄: 글자에 커서를 올렸을 때만 채워진다 */
 .gbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;height:40px;box-sizing:border-box;display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--blue);border-bottom:1px solid var(--line);font-size:12px;white-space:nowrap;overflow:hidden}
 .gbar span{overflow:hidden;text-overflow:ellipsis}
@@ -564,39 +570,45 @@ function renderDetail(w) {
     + (entry?.figures?.length ? '<div class="source-figures">' + entry.figures.map(f => '<figure><img style="max-width:100%;height:auto;background:var(--white)" src="' + esc(f.url) + '" alt="' + esc(f.alt || '원문 도형') + '"><figcaption class="note">원문 도형 · 위키문헌</figcaption></figure>').join('') + '</div>' : '')
     + '</div></div>';
   const bd = document.getElementById('body-' + w.id), txt = textFor(w);
-  if (txt.trim()) bd.textContent = txt;
+  if (txt.trim()) renderSheets(w, bd, txt);
   else { bd.classList.add('empty-body'); bd.textContent = loadError ? '전문 데이터를 불러오지 못했습니다.' : (pending[w.id]?.reason || '본문 미수록'); }
-  if (txt.trim()) bindGlyphs(w, bd);
   window.scrollTo(0, 0);
 }
 
 function faceOf(w) { return collected[w.id]?.kind === '한국어 번역문' ? '背' : '正'; }
-/* 본문의 글자 하나하나를 원고지 칸(한 줄 20칸, 공백·줄바꿈 제외)으로 세어 주소를 붙인다 */
-function bindGlyphs(w, bd) {
-  const node = bd.firstChild; if (!node || node.nodeType !== 3) return;
-  const str = node.data, idx = new Int32Array(str.length + 1);
-  let n = 0;
-  for (let i = 0; i < str.length; i++) { idx[i] = /\s/.test(str[i]) ? -1 : n++; }
+/* 원고지: 공백·줄바꿈을 뺀 글자를 한 칸에 하나씩, 한 줄 20칸, 한 장 400칸(20행)으로 흘린다.
+   칸의 자리 = 주소의 행-열. 행은 장을 넘어 이어서 센다. */
+const SHEET = CELLS_PER_ROW * CELLS_PER_ROW;
+function renderSheets(w, bd, txt) {
+  const chars = Array.from(txt).filter(c => !/\s/.test(c));
+  const sheets = Math.max(1, Math.ceil(chars.length / SHEET));
+  let html = '';
+  for (let k = 0; k < sheets; k++) {
+    html += '<section class="sheet" aria-label="원고지 ' + (k + 1) + '장"><div class="sheet-no mono">' + String(k + 1).padStart(2, '0') + '張 · '
+      + (k * CELLS_PER_ROW + 1) + '—' + ((k + 1) * CELLS_PER_ROW) + '行</div><div class="grid20">';
+    for (let j = 0; j < SHEET; j++) {
+      const g = k * SHEET + j, c = chars[g];
+      html += c === undefined ? '<span class="cell blank"></span>' : '<span class="cell" data-g="' + g + '">' + esc(c) + '</span>';
+    }
+    html += '</div></section>';
+  }
+  bd.innerHTML = html;
+  bd.setAttribute('aria-label', '원고지 ' + sheets + '장 · ' + chars.length + '字');
   const out = document.getElementById('glyphAddr');
   const face = faceOf(w), faceKo = face === '正' ? '정면(원문)' : '배면(번역문)';
-  const hl = (window.CSS && CSS.highlights && window.Highlight) ? new Highlight() : null;
-  if (hl) CSS.highlights.set('glyph', hl);
+  let on = null;
   function show(e) {
-    let off = -1;
-    if (document.caretPositionFromPoint) { const c = document.caretPositionFromPoint(e.clientX, e.clientY); if (c && c.offsetNode === node) off = c.offset; }
-    else if (document.caretRangeFromPoint) { const r = document.caretRangeFromPoint(e.clientX, e.clientY); if (r && r.startContainer === node) off = r.startOffset; }
-    if (off < 0) return;
-    let i = Math.min(off, str.length - 1);
-    if (idx[i] < 0 && i > 0 && idx[i - 1] >= 0) i--;
-    if (idx[i] < 0) return;
-    const g = idx[i], row = Math.floor(g / CELLS_PER_ROW) + 1, col = g % CELLS_PER_ROW + 1;
+    const el = e.target.closest && e.target.closest('.cell[data-g]');
+    if (!el || el === on) return;
+    if (on) on.classList.remove('on');
+    on = el; el.classList.add('on');
+    const g = +el.dataset.g, row = Math.floor(g / CELLS_PER_ROW) + 1, col = g % CELLS_PER_ROW + 1;
     out.innerHTML = '<b>' + w.addr + ' / ' + face + ' / ' + String(row).padStart(2, '0') + '-' + String(col).padStart(2, '0') + '</b>'
-      + '<span>' + esc(w.addrKo) + ' · ' + faceKo + ' · ' + row + '행 ' + col + '열 · 「' + esc(str[i]) + '」 · 第' + (g + 1) + '字</span>';
-    if (hl) { const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 1); hl.clear(); hl.add(r); }
+      + '<span>' + esc(w.addrKo) + ' · ' + faceKo + ' · ' + row + '행 ' + col + '열 · 「' + esc(chars[g]) + '」 · 第' + (g + 1) + '字</span>';
   }
-  bd.addEventListener('mousemove', show);
+  bd.addEventListener('mouseover', show);
   bd.addEventListener('click', show);
-  bd.addEventListener('mouseleave', () => { out.innerHTML = ''; if (hl) hl.clear(); });
+  bd.addEventListener('mouseleave', () => { out.innerHTML = ''; if (on) on.classList.remove('on'); on = null; });
 }
 
 function route() {
