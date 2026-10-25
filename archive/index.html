@@ -497,7 +497,7 @@ function renderList() {
   const shown = WORKS.filter(w => (filter === 'all' || status(w) === filter) && (langF === 'all' || w.lang === langF));
   let field = '';
   Object.keys(RAW).forEach((sec, i) => {
-    field += (i ? '<span class="gap"></span>' : '') + '<span class="lab it">' + sec + '</span>';
+    field += (i ? '<span class="gap"></span>' : '') + '<span class="lab it">' + sec + ' · ' + SEC_KO[sec] + '</span>';
     WORKS.filter(w => w.sec === sec).forEach(w => {
       field += '<a href="#' + w.id + '" aria-label="' + esc(w.title) + ' · ' + STATUS_LABEL[status(w)] + '" title="' + esc(w.title) + '"><span class="sq ' + status(w) + '"></span></a>';
     });
