@@ -29,7 +29,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--fg);outline-offset:
 <canvas id="c" aria-label="이상의 글을 모듈로 쌓은 3차원 적층. 끌어서 돌리고, 휠로 다가가면 글자가 보입니다."></canvas>
 <header>
   <a class="home" href="../">李箱</a>
-  <nav aria-label="보기"><button type="button" data-v="0" aria-pressed="true">「오감도」 연작</button><button type="button" data-v="1" aria-pressed="false">1934년</button><button type="button" data-v="2" aria-pressed="false">전체 띠</button></nav>
+  <nav aria-label="보기"><button type="button" data-v="0" aria-pressed="true">「오감도」 연작</button><button type="button" data-v="1" aria-pressed="false">1934년</button><button type="button" data-v="2" aria-pressed="false">전체 띠</button><button type="button" data-v="3" aria-pressed="false">층 쌓기</button></nav>
   <div id="bar" aria-live="off"></div>
 </header>
 <div id="msg">쌓는 중이오</div>
@@ -76,11 +76,11 @@ function cut(text) {
 
 /* ---------- 집: 원고지 줄처럼 모듈을 한 줄씩 채우고, 첫 줄이 맨 위 ---------- */
 const parents = new Set(WORKS.filter(w => w.parent).map(w => w.parent));
-function house(w) {
+function house(w, wide) {
   const t = TEXTS[w.id]; if (!t) return null;
   const { ch, segs } = cut(t.text);
   const n = ch.length, ty = n < 300 ? 's' : n < 3000 ? 'm' : 'l';
-  const W = ty === 's' ? 10 : ty === 'm' ? 24 : Math.max(60, Math.round(n / 90));
+  const W = wide ? (ty === 's' ? 14 : ty === 'm' ? 40 : Math.min(400, Math.max(80, Math.round(n / 40)))) : (ty === 's' ? 10 : ty === 'm' ? 24 : Math.max(60, Math.round(n / 90)));
   const rows = []; let row = [], x = 0, g = 0;
   segs.forEach(sg => {
     if (x + sg.s.length > W && row.length) { rows.push(row); row = []; x = 0; }
@@ -123,6 +123,31 @@ function viewAll() {
   });
   return all;
 }
+/* 층 쌓기: 한 해(層)의 글을 벽처럼 가로로 나란히 박고, 다음 해를 그 위에 쌓는다.
+   모든 해가 같은 땅(약 80×80)을 나눠 쓰므로 위로 솟고, 땅보다 긴 소설은 옆으로 길게 삐져나와 매달린다.
+   벽은 한 장씩 90도 엇갈리고, 가장 낮은 자리(같으면 가운데)로 떨어진다. */
+function viewStrata() {
+  const yrs = w => (w.floor === 'B1' ? '9999' : w.floor);
+  const hs = WORKS.filter(w => !parents.has(w.title)).map(w => house(w, true)).filter(Boolean)
+    .sort((a, b) => yrs(a.w).localeCompare(yrs(b.w)) || ord(a) - ord(b) || b.W - a.W);
+  const hm = new Map(), key = (x, z) => (x + 50000) * 100000 + (z + 50000);
+  const get = (x, z) => hm.get(key(x, z)) || 0;
+  const cands = []; for (let dz = -40; dz <= 40; dz += 2) for (let dx = -40; dx <= 40; dx += 2) cands.push([dx, dz, Math.hypot(dx, dz)]);
+  hs.forEach((h, i) => {
+    h.o = i % 2;
+    const fx = h.o ? 1 : h.W, fz = h.o ? h.W : 1;
+    const st = Math.max(1, Math.floor(Math.max(fx, fz) / 120));
+    let best = null;
+    for (const [dx, dz, d] of cands) {
+      const x0 = Math.round(dx - fx / 2), z0 = Math.round(dz - fz / 2); let m = 0;
+      for (let z = z0; z < z0 + fz; z += st) for (let x = x0; x < x0 + fx; x += st) { const v = get(x, z); if (v > m) m = v; }
+      if (!best || m < best.m || (m === best.m && d < best.d)) best = { x0, z0, m, d };
+    }
+    h.x = best.x0; h.z = best.z0; h.y = best.m;
+    for (let z = best.z0; z < best.z0 + fz; z++) for (let x = best.x0; x < best.x0 + fx; x++) hm.set(key(x, z), best.m + h.H);
+  });
+  return hs;
+}
 
 /* ---------- three ---------- */
 const canvas = $('c');
@@ -144,23 +169,25 @@ const FACES = {
   L: tex((x, w, h) => { x.fillStyle = FG; x.fillRect(0, 0, w, h); x.fillStyle = BG; x.fillRect(w * .15, h * .3, w * .7, h * .12); x.strokeStyle = BG; x.lineWidth = 4; x.strokeRect(2, 2, w - 4, h - 4); })
 };
 const sideMat = new THREE.MeshBasicMaterial({ map: edge });
-const MATS = {}; Object.keys(FACES).forEach(k => { const m = new THREE.MeshBasicMaterial({ map: FACES[k] }); MATS[k] = [sideMat, sideMat, sideMat, sideMat, m, m]; });
+const MATS = {}; Object.keys(FACES).forEach(k => { const m = new THREE.MeshBasicMaterial({ map: FACES[k] }); MATS[k] = [sideMat, sideMat, sideMat, sideMat, m, m]; MATS[k + '_'] = [sideMat, sideMat, m, m, sideMat, sideMat]; });
 const box = new THREE.BoxGeometry(1, 1, 1);
 
 let curView = 0, group = null, houses = [], instIndex = {}, chunks = [], active = new Map();
 const GAP = 0.06;
-function worldOf(h, cx, cy) { return h.o ? new THREE.Vector3(h.x + 0.5, h.y + cy + 0.5, h.z + cx) : new THREE.Vector3(h.x + cx, h.y + cy + 0.5, h.z + 0.5); }
+function worldOf(h, cx, cy) {
+  if (h.lie) { const d = h.H - 1 - cy; return h.o ? new THREE.Vector3(h.x + d + 0.5, h.y + 0.5, h.z + cx) : new THREE.Vector3(h.x + cx, h.y + 0.5, h.z + d + 0.5); }
+  return h.o ? new THREE.Vector3(h.x + 0.5, h.y + cy + 0.5, h.z + cx) : new THREE.Vector3(h.x + cx, h.y + cy + 0.5, h.z + 0.5); }
 
 function build(v) {
   if (group) { scene.remove(group); group.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); }
   active.forEach(m => disposeChunk(m)); active.clear();
   group = new THREE.Group(); scene.add(group);
-  houses = [viewOgamdo, view1934, viewAll][v]();
-  const per = { H: [], C: [], J: [], N: [], L: [] };
+  houses = [viewOgamdo, view1934, viewAll, viewStrata][v]();
+  const per = {};
   chunks = [];
   houses.forEach(h => h.rows.forEach((r, ri) => {
     const cy = h.H - 1 - ri;
-    r.forEach(b => { per[b.k].push({ h, b, cy }); });
+    r.forEach(b => { const kk = b.k + (h.lie ? '_' : ''); (per[kk] = per[kk] || []).push({ h, b, cy }); });
     // 글자 조각: 한 줄을 최대 32칸씩
     let start = r[0].x, end = r[r.length - 1].x + r[r.length - 1].n, g0 = r[0].g;
     for (let s = 0; s < end - start; s += 32) {
@@ -206,7 +233,12 @@ function chunkMesh(ck) {
   [false, true].forEach(back => {
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: make(back), transparent: true }));
     const off = 0.5 + 0.012;
-    if (h.o) { m.position.set(back ? off : -off, 0, 0); m.rotation.y = back ? Math.PI / 2 : -Math.PI / 2; }
+    if (h.lie) {
+      const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), back ? Math.PI / 2 : -Math.PI / 2);
+      const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), h.o ? -Math.PI / 2 : 0);
+      m.quaternion.copy(qy.multiply(qx)); m.position.set(0, back ? -off : off, 0);
+    }
+    else if (h.o) { m.position.set(back ? off : -off, 0, 0); m.rotation.y = back ? Math.PI / 2 : -Math.PI / 2; }
     else { m.position.set(0, 0, back ? -off : off); m.rotation.y = back ? Math.PI : 0; }
     g.add(m);
   });
@@ -233,7 +265,7 @@ function lod() {
 
 /* ---------- 카메라 ---------- */
 function frame() {
-  const b = new THREE.Box3(); houses.forEach(h => { b.expandByPoint(new THREE.Vector3(h.x, h.y, h.z)); b.expandByPoint(h.o ? new THREE.Vector3(h.x + 1, h.y + h.H, h.z + h.W) : new THREE.Vector3(h.x + h.W, h.y + h.H, h.z + 1)); });
+  const b = new THREE.Box3(); houses.forEach(h => { b.expandByPoint(new THREE.Vector3(h.x, h.y, h.z)); b.expandByPoint(h.lie ? (h.o ? new THREE.Vector3(h.x + h.H, h.y + 1, h.z + h.W) : new THREE.Vector3(h.x + h.W, h.y + 1, h.z + h.H)) : (h.o ? new THREE.Vector3(h.x + 1, h.y + h.H, h.z + h.W) : new THREE.Vector3(h.x + h.W, h.y + h.H, h.z + 1))); });
   const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
   const r = curView === 2 ? Math.max(s.y * 2.2, s.z * 1.6) : Math.max(s.x, s.y * 1.4, s.z) * 0.75;   // 전체 띠는 띠의 높이에 맞춰 가까이, 옆으로 끌어서 본다
   const dir = new THREE.Vector3(0.75, 0.55, 1).normalize();
