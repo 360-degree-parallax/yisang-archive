@@ -16,7 +16,6 @@ header a{display:flex;align-items:center;padding:0 20px;font-family:var(--serif)
 #bar b{font-weight:600;flex:0 0 auto}#bar span{overflow:hidden;text-overflow:ellipsis}
 #c{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 #c:active{cursor:grabbing}
-#help{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:4;font-family:var(--mono);font-size:11px;line-height:1.7;background:var(--bg);padding:8px 12px;border:1px solid var(--line)}
 #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:24px;z-index:4;pointer-events:none}
 </style>
 </head>
@@ -24,7 +23,6 @@ header a{display:flex;align-items:center;padding:0 20px;font-family:var(--serif)
 <canvas id="c" aria-label="이상의 모든 글을 깐 신문 한 면. 가운데에서 단이 접혀 네모 안의 네모 방이 됩니다. 휠로 확대하면 글자가 보입니다."></canvas>
 <header><a href="../">李箱</a><div id="bar" aria-live="off"></div></header>
 <div id="msg">짓는 중이오</div>
-<div id="help">휠 · 확대　끌기 · 이동　두 번 누르기 · 한 면 전체<br>글자에 커서를 올리면 그 글자의 주소</div>
 <script>
 (async function(){
 'use strict';
