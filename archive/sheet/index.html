@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>李箱 一面</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;600&family=Nanum+Myeongjo:wght@700;800&display=swap">
+<style>
+/* 一面: 이상의 모든 글을 신문 한 면에 깐다. 가운데에서 단이 접혀 네모 안의 네모(육면각체)가 된다. 喀血 두 색. */
+:root{--bg:#7A1424;--fg:#66E6D2;--line:rgba(102,230,210,.45);--serif:"Nanum Myeongjo","Batang",serif;--mono:"IBM Plex Mono",ui-monospace,monospace;--sans:"IBM Plex Sans KR",sans-serif;color-scheme:dark}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);overflow:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+header{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--bg)}
+header a{display:flex;align-items:center;padding:0 20px;font-family:var(--serif);font-weight:800;font-size:22px;color:var(--fg);text-decoration:none;border-right:1px solid var(--line)}
+#bar{flex:1;min-width:0;display:flex;align-items:center;gap:16px;padding:0 20px;min-height:48px;font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden}
+#bar b{font-weight:600;flex:0 0 auto}#bar span{overflow:hidden;text-overflow:ellipsis}
+#c{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#c:active{cursor:grabbing}
+#help{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:4;font-family:var(--mono);font-size:11px;line-height:1.7;background:var(--bg);padding:8px 12px;border:1px solid var(--line)}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:24px;z-index:4;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="이상의 모든 글을 깐 신문 한 면. 가운데에서 단이 접혀 네모 안의 네모 방이 됩니다. 휠로 확대하면 글자가 보입니다."></canvas>
+<header><a href="../">李箱</a><div id="bar" aria-live="off"></div></header>
+<div id="msg">짓는 중이오</div>
+<div id="help">휠 · 확대　끌기 · 이동　두 번 누르기 · 한 면 전체<br>글자에 커서를 올리면 그 글자의 주소</div>
+<script>
+(async function(){
+'use strict';
+const BG = '#7A1424', FG = '#66E6D2';
+const $ = id => document.getElementById(id);
+let WORKS, TEXTS;
+try { const [a, b] = await Promise.all([fetch('../data/works.json'), fetch('../data/texts.json')]); WORKS = await a.json(); TEXTS = await b.json(); }
+catch (e) { $('msg').textContent = '데이터를 불러오지 못했소. 서버에서 여시오.'; return; }
+if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('700 20px "Nanum Myeongjo"', '李箱가四角'), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} }
+
+/* ---------- 재료 ---------- */
+const parents = new Set(WORKS.filter(w => w.parent).map(w => w.parent));
+const mk = w => ({ w, ch: Array.from(TEXTS[w.id].text).filter(c => !/\s/.test(c)), lang: TEXTS[w.id].kind === '한국어 번역문' ? 'J' : 'K', face: TEXTS[w.id].kind === '한국어 번역문' ? '背' : '正' });
+const ROOMSER = new Set(['오감도', '조감도']);             // 방을 짓는 글
+const roomWorks = WORKS.filter(w => TEXTS[w.id] && ROOMSER.has(w.parent)).sort((a, b) => a.no - b.no).map(mk);
+const rest = WORKS.filter(w => !parents.has(w.title) && !(w.parent && ROOMSER.has(w.parent))).sort((a, b) => a.no - b.no)
+  .map(w => TEXTS[w.id] ? mk(w) : { w, empty: true });
+const CORE = WORKS.filter(w => w.parent === '건축무한육면각체');   // 맨 안쪽: 본문이 아직 없는 「건축무한육면각체」
+const TOTAL = roomWorks.concat(rest).reduce((a, it) => a + (it.ch ? it.ch.length : 0), 0);
+
+/* ---------- 판 ---------- */
+const COLW = 20, GUT = 2, PITCH = COLW + GUT, MARG = 6, MAST = 10, FOOT = 26;
+const HEAD = 5, EMPTYH = 6;                       // 표제 상자 · 빈 방 상자 높이(줄)
+const ZB = 2, LEVELS = 4, CS0 = 1.6, FS = 2.4;     // 방 글자는 바깥 단의 1.6배, FS: 깊이 방향 줄임(클수록 벽이 더 누운다)                         // 뒷벽은 앞면의 1/2. 방 안의 방을 네 겹
+let L;                                            // 판 배치 결과
+function layout(NC, SH) {
+  const SW = MARG * 2 + NC * PITCH - GUT;
+  const top = MARG + MAST, bot = SH - MARG - FOOT, flatH = bot - top;
+  const m = Math.max(2, Math.round(NC * 0.13)), NCR = NC - 2 * m;
+  const rx0 = MARG + m * PITCH, rx1 = rx0 + NCR * PITCH - GUT;
+  const hw = (rx1 - rx0) / 2, hh = Math.round(flatH * 0.19), vpx = (rx0 + rx1) / 2, vpy = Math.round(top + flatH * 0.47);
+  const ry0 = vpy - hh, ry1 = vpy + hh;
+  const flat = [], heads = [], empties = [], vblocks = [], rrows = [], rmap = new Map();
+  // 흘릴 자리: 방의 네 면(천장·좌·우·바닥) → 바깥 단
+  let queue = roomWorks.concat(rest).map(it => ({ it, g: 0, headed: false })), qi = 0;
+  const cur = () => queue[qi];
+  /* 방: 한 겹의 네 면을 원고지 줄로 */
+  function roomRows(lv, fill) {
+    const k = Math.pow(0.5, lv), cs = CS0 * k, HW = hw * k, HH = hh * k, X0 = vpx - HW, Y0 = vpy - HH;
+    const dzc = cs / (FS * HH), dzs = cs / (FS * HW);   // 천장·바닥 한 줄 / 옆벽 한 칸의 깊이
+    const rowsC = Math.floor((ZB - 1) / dzc), segs = Math.floor(((ZB - 1) / dzs + GUT) / PITCH), rowsS = Math.floor(2 * HH / cs);
+    const NCc = Math.floor((2 * HW / cs + GUT) / PITCH), XC = vpx - (NCc * PITCH - GUT) * cs / 2, YS = vpy - rowsS * cs / 2;
+    const slots = [];
+    for (let r = 0; r < rowsC; r++) for (let c = 0; c < NCc; c++) slots.push({ wall: 'T', lv, a: r, b: c });
+    for (let s = 0; s < segs; s++) for (let r = 0; r < rowsS; r++) slots.push({ wall: 'L', lv, a: r, b: s });
+    for (let s = 0; s < segs; s++) for (let r = 0; r < rowsS; r++) slots.push({ wall: 'R', lv, a: r, b: s });
+    for (let r = 0; r < rowsC; r++) for (let c = 0; c < NCc; c++) slots.push({ wall: 'F', lv, a: r, b: c });
+    const geo = { lv, cs, HW, HH, X0, Y0, dzc, dzs, rowsC, rowsS, segs, NCc, XC, YS };
+    slots.forEach(sl => { sl.geo = geo; fill(sl); if (sl.wk || sl.title) { rrows.push(sl); rmap.set(lv + '|' + sl.wall + '|' + sl.a + '|' + sl.b, sl); } });
+    return geo;
+  }
+  const geos = [];
+  // 겹 0: 방 글부터, 넘치면 나머지 글이 이어 들어온다
+  geos.push(roomRows(0, sl => {
+    while (qi < queue.length && cur().it.empty) qi++;     // 빈 방은 바깥 단에서
+    if (qi >= queue.length) return;
+    const q = cur();
+    if (!q.headed) { sl.title = q.it; sl.wk = q.it; q.headed = true; return; }
+    sl.wk = q.it; sl.g0 = q.g; sl.n = Math.min(COLW, q.it.ch.length - q.g); q.g += sl.n;
+    if (q.g >= q.it.ch.length) qi++;
+  }));
+  // 겹 1~: 방 글을 되풀이한다(사각형의 내부의 사각형의 내부의…)
+  for (let lv = 1; lv < LEVELS; lv++) {
+    let ri = 0, rg = 0, head = true;
+    geos.push(roomRows(lv, sl => {
+      const it = roomWorks[ri % roomWorks.length];
+      if (head) { sl.title = it; sl.wk = it; head = false; return; }
+      sl.wk = it; sl.g0 = rg; sl.n = Math.min(COLW, it.ch.length - rg); rg += sl.n;
+      if (rg >= it.ch.length) { ri++; rg = 0; head = true; }
+    }));
+  }
+  /* 바깥 단: 단마다 위에서 아래로. 방이 있는 단은 방 위·아래 토막 */
+  const segsF = [];
+  for (let c = 0; c < NC; c++) {
+    const x = MARG + c * PITCH, inRoom = c >= m && c < NC - m;
+    if (inRoom) { segsF.push({ x, y0: top, y1: ry0 - 2 }); segsF.push({ x, y0: ry1 + 2, y1: bot }); }
+    else segsF.push({ x, y0: top, y1: bot });
+  }
+  // 위 토막들을 먼저, 그다음 아래 토막들 (신문처럼 단을 건너 흐른다)
+  const order = segsF.filter(s => s.y0 === top && s.y1 !== bot).concat(segsF.filter(s => s.y1 === bot && s.y0 === top), segsF.filter(s => s.y0 !== top));
+  for (const S of order) {
+    let y = S.y0;
+    while (y < S.y1 && qi < queue.length) {
+      const q = cur(), it = q.it, room = S.y1 - y;
+      if (it.empty) { if (room < EMPTYH) break; empties.push({ x: S.x, y, w: it.w }); y += EMPTYH + 1; qi++; continue; }
+      if (!q.headed) { if (room < HEAD + 2) break; heads.push({ x: S.x, y, it }); y += HEAD + 1; q.headed = true; continue; }
+      if (it.lang === 'J') {             // 일문: 세로쓰기. 오른쪽 줄부터 왼쪽으로
+        const h = Math.min(room, Math.max(3, Math.ceil((it.ch.length - q.g) / COLW)));
+        const n = Math.min(COLW * h, it.ch.length - q.g);
+        vblocks.push({ x: S.x, y, h, wk: it, g0: q.g, n }); q.g += n; y += h;
+      } else {
+        flat.push({ x: S.x, y, wk: it, g0: q.g, n: Math.min(COLW, it.ch.length - q.g) }); q.g += COLW; y += 1;
+      }
+      if (q.g >= it.ch.length) { qi++; y += 1; }
+    }
+  }
+  return { NC, SW, SH, top, bot, m, NCR, rx0, rx1, ry0, ry1, hw, hh, vpx, vpy, flat, heads, empties, vblocks, rrows, rmap, geos, left: queue.length - qi };
+}
+// 판 크기: 단 수마다 모든 글이 들어가는 가장 낮은 높이를 찾고, 그중 세로:가로가 1.9에 가장 가까운 것
+{
+  let best = null;
+  for (let NC = 14; NC <= 24; NC++) {
+    const SW = MARG * 2 + NC * PITCH - GUT; let lo = Math.round(SW * 1.1), hi = Math.round(SW * 3.2);
+    if (layout(NC, hi).left) continue;
+    while (hi - lo > 3) { const mid = (lo + hi) >> 1; if (layout(NC, mid).left) lo = mid; else hi = mid; }
+    const cost = Math.abs(hi / SW - 1.9); if (!best || cost < best.cost) best = { NC, SH: hi, cost };
+  }
+  L = layout(best.NC, best.SH);
+}
+
+/* ---------- 투시: 겹 lv의 앞면 좌표(x,y)와 깊이 z(1~2) → 판 위의 점 ---------- */
+const PJ = (x, y, z) => [L.vpx + (x - L.vpx) / z, L.vpy + (y - L.vpy) / z];
+// 방의 한 줄에서 i번째 칸: 글자의 위왼쪽·위오른쪽·아래왼쪽 귀(판 좌표)
+function cellRoom(sl, i) {
+  const G = sl.geo, cs = G.cs;
+  if (sl.wall === 'T' || sl.wall === 'F') {
+    const x = G.XC + (sl.b * PITCH + i) * cs;
+    if (sl.wall === 'T') { const y = G.Y0, z0 = 1 + sl.a * G.dzc, z1 = z0 + G.dzc; return [PJ(x, y, z0), PJ(x + cs, y, z0), PJ(x, y, z1)]; }
+    const y = G.Y0 + 2 * G.HH, z1 = ZB - sl.a * G.dzc, z0 = z1 - G.dzc;       // 바닥은 안쪽 줄부터, 글자 머리는 안쪽을 향한다
+    return [PJ(x, y, z1), PJ(x + cs, y, z1), PJ(x, y, z0)];
+  }
+  const y = G.YS + sl.a * cs;
+  if (sl.wall === 'L') { const x = G.X0, z0 = 1 + (sl.b * PITCH + i) * G.dzs; return [PJ(x, y, z0), PJ(x, y, z0 + G.dzs), PJ(x, y + cs, z0)]; }
+  const x = G.X0 + 2 * G.HW, z1 = 1 + (sl.b * PITCH + (COLW - 1 - i) + 1) * G.dzs;   // 오른벽은 바깥으로 읽힌다
+  return [PJ(x, y, z1), PJ(x, y, z1 - G.dzs), PJ(x, y + cs, z1)];
+}
+
+/* ---------- 보기 ---------- */
+const cv = $('c'), g = cv.getContext('2d');
+let cam = { s: 1, x: 0, y: 0 }, DPR = 1, W = 0, H = 0;
+const X = u => cam.x + u * cam.s, Y = u => cam.y + u * cam.s;
+function fit() { const s = Math.min((W - 40) / L.SW, (H - 48 - 30) / L.SH); cam.s = s; cam.x = (W - L.SW * s) / 2; cam.y = 48 + 15; }
+const SERIF = '"Nanum Myeongjo", "Batang", serif', MONO = '"IBM Plex Mono", ui-monospace, monospace';
+function glyphAt(tl, tr, bl, ch, color) {
+  const ox = X(tl[0]), oy = Y(tl[1]);
+  g.setTransform(DPR * (X(tr[0]) - ox) / 100, DPR * (Y(tr[1]) - oy) / 100, DPR * (X(bl[0]) - ox) / 100, DPR * (Y(bl[1]) - oy) / 100, DPR * ox, DPR * oy);
+  g.fillStyle = color; g.fillText(ch, 50, 56);
+}
+const vis = (x, y, w, h) => !(X(x + w) < 0 || X(x) > W || Y(y + h) < 48 || Y(y) > H);
+function poly(pts) { g.moveTo(X(pts[0][0]), Y(pts[0][1])); for (let i = 1; i < pts.length; i++) g.lineTo(X(pts[i][0]), Y(pts[i][1])); g.closePath(); }
+function draw() {
+  g.setTransform(DPR, 0, 0, DPR, 0, 0); g.fillStyle = BG; g.fillRect(0, 0, W, H);
+  const s = cam.s;
+  // 종이(한 면)의 테두리
+  g.strokeStyle = FG; g.lineWidth = 1; g.strokeRect(X(0), Y(0), L.SW * s, L.SH * s);
+  /* 바깥 단 */
+  g.font = '700 80px ' + SERIF; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (s < 1.1) {                                   // 멀리: 줄을 가는 선으로 (활자의 회색 결)
+    g.fillStyle = FG; g.globalAlpha = s < 0.45 ? 0.5 : 0.6;
+    L.flat.forEach(r => { if (vis(r.x, r.y, COLW, 1)) g.fillRect(X(r.x + .1), Y(r.y + .2), r.n * s * .96, Math.max(.6, s * .6)); });
+    L.vblocks.forEach(v => { if (!vis(v.x, v.y, COLW, v.h)) return; const lines = Math.ceil(v.n / v.h); for (let l = 0; l < lines; l++) { const len = Math.min(v.h, v.n - l * v.h); g.fillRect(X(v.x + COLW - 1 - l + .2), Y(v.y), Math.max(.6, s * .6), len * s); } });
+    g.globalAlpha = 1;
+  } else {
+    L.flat.forEach(r => { if (!vis(r.x, r.y, COLW, 1)) return; const ch = r.wk.ch; for (let i = 0; i < r.n; i++) glyphAt([r.x + i, r.y], [r.x + i + 1, r.y], [r.x + i, r.y + 1], ch[r.g0 + i], FG); });
+    L.vblocks.forEach(v => { if (!vis(v.x, v.y, COLW, v.h)) return; const ch = v.wk.ch; for (let i = 0; i < v.n; i++) { const l = Math.floor(i / v.h), k = i % v.h, x = v.x + COLW - 1 - l, y = v.y + k; glyphAt([x, y], [x + 1, y], [x, y + 1], ch[v.g0 + i], FG); } });
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  /* 표제: 꽉 찬 상자에 큰 번호 */
+  L.heads.forEach(h => {
+    if (!vis(h.x, h.y, COLW, HEAD)) return;
+    const w = h.it.w; g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    g.fillStyle = FG; g.fillRect(X(h.x), Y(h.y), COLW * s, HEAD * s);
+    if (s * HEAD < 6) return;
+    g.fillStyle = BG; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.font = '800 ' + (s * 3.3).toFixed(1) + 'px ' + SERIF; g.fillText(w.wing + ' ' + String(w.room).padStart(2, '0'), X(h.x + .6), Y(h.y + 3.2));
+    if (s >= 2.2) { g.font = '700 ' + (s * 1.05).toFixed(1) + 'px ' + SERIF; g.fillText(('「' + w.title + '」').slice(0, 19), X(h.x + .6), Y(h.y + 4.55)); }
+  });
+  /* 빈 방: 테두리 친 상자 */
+  L.empties.forEach(e => {
+    if (!vis(e.x, e.y, COLW, EMPTYH)) return;
+    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.strokeStyle = FG; g.lineWidth = Math.max(1, s * .35); g.strokeRect(X(e.x + .2), Y(e.y + .2), (COLW - .4) * s, (EMPTYH - .4) * s);
+    if (s * EMPTYH < 10) return;
+    g.fillStyle = FG; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '800 ' + (s * 1.6).toFixed(1) + 'px ' + SERIF; g.fillText('原文 未收', X(e.x + COLW / 2), Y(e.y + 2.2));
+    if (s >= 1.6) { g.font = '700 ' + (s * 1).toFixed(1) + 'px ' + SERIF; g.fillText(('「' + e.w.title + '」').slice(0, 19), X(e.x + COLW / 2), Y(e.y + 4.1)); }
+  });
+  /* 방 */
+  drawRoom();
+  /* 머리 · 꼬리 */
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const t = MARG, mh = MAST - 3;
+  g.fillStyle = FG; g.fillRect(X(MARG), Y(t), 9 * s, mh * s);
+  g.textBaseline = 'middle';
+  if (s * mh > 5) {
+    g.fillStyle = BG; g.textAlign = 'center'; g.font = '800 ' + (s * 5).toFixed(1) + 'px ' + SERIF; g.fillText('一', X(MARG + 4.5), Y(t + mh / 2 + .3));
+    g.fillStyle = FG; g.textAlign = 'left'; g.font = '600 ' + (s * 1.6).toFixed(1) + 'px ' + MONO; g.fillText('李箱 · 作品 全 ' + (roomWorks.length + rest.length) + '篇 · ' + TOTAL.toLocaleString() + '字 · 原文 未收 ' + rest.filter(i => i.empty).length + '篇', X(MARG + 11), Y(t + mh / 2));
+  }
+  g.fillRect(X(MARG), Y(t + mh + .8), (L.SW - 2 * MARG) * s, Math.max(1, s * .3));
+  const fy = L.SH - MARG - FOOT + 3, fh = FOOT - 3;
+  g.fillRect(X(MARG), Y(fy - 1.2), (L.SW - 2 * MARG) * s, Math.max(1, s * .3));
+  if (s * fh > 6) {
+    g.fillStyle = FG; g.textAlign = 'left'; g.font = '800 ' + (s * 8).toFixed(1) + 'px ' + SERIF;
+    g.fillText('四角形ノ内部ノ四角形ノ内部ノ四角形', X(MARG), Y(fy + 6));
+    g.font = '800 ' + (s * 8).toFixed(1) + 'px ' + SERIF; g.fillText('ノ内部ノ四角形ノ内部ノ四角形。', X(MARG), Y(fy + 16));
+    const bx = L.SW - MARG - 40, by = fy + 2; g.fillRect(X(bx), Y(by), 40 * s, (fh - 3) * s);
+    g.fillStyle = BG; g.textAlign = 'center'; g.font = '800 ' + (s * 12).toFixed(1) + 'px ' + SERIF; g.fillText('李箱', X(bx + 20), Y(by + (fh - 3) / 2 + .6));
+  } else { g.fillRect(X(MARG), Y(fy + 2), (L.SW - 2 * MARG - 44) * s, 14 * s); g.fillRect(X(L.SW - MARG - 40), Y(fy + 2), 40 * s, (fh - 3) * s); }
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+function drawRoom() {
+  const s = cam.s;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.font = '700 80px ' + SERIF; g.textAlign = 'center'; g.textBaseline = 'middle';
+  L.geos.forEach(G => {
+    const frontPx = G.cs * s;
+    if (frontPx < 3) {                     // 멀리: 네 면에 활자 결을 엷게 깐다
+      g.setTransform(DPR, 0, 0, DPR, 0, 0); g.fillStyle = FG; g.globalAlpha = .42;
+      const f = [[G.X0, G.Y0], [G.X0 + 2 * G.HW, G.Y0], [G.X0 + 2 * G.HW, G.Y0 + 2 * G.HH], [G.X0, G.Y0 + 2 * G.HH]], b = f.map(p => PJ(p[0], p[1], ZB));
+      g.beginPath(); for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; poly([f[i], f[j], b[j], b[i]]); } g.fill(); g.globalAlpha = 1;
+    }
+    const near = r => { const z = (r.wall === 'T') ? 1 + r.a * G.dzc : r.wall === 'F' ? ZB - (r.a + 1) * G.dzc : 1 + r.b * PITCH * G.dzs; return frontPx / z; };
+    L.rrows.forEach(r => {
+      if (r.geo !== G) return;
+      const px = near(r);
+      if (px < 0.9) return;
+      const a = cellRoom(r, 0), b = cellRoom(r, COLW - 1);
+      const bb = [a[0], a[2], b[1]]; const xs = bb.map(p => p[0]), ys = bb.map(p => p[1]);
+      if (!vis(Math.min(...xs), Math.min(...ys), Math.max(...xs) - Math.min(...xs) + 1, Math.max(...ys) - Math.min(...ys) + 1)) return;
+      if (r.title) {                       // 제목 줄: 꽉 찬 띠
+        g.setTransform(DPR, 0, 0, DPR, 0, 0); g.fillStyle = FG; g.beginPath(); poly([a[0], b[1], [b[1][0] + b[2][0] - b[0][0], b[1][1] + b[2][1] - b[0][1]], a[2]]); g.fill();
+        if (px >= 4) { const tt = (r.title.w.wing + String(r.title.w.room).padStart(2, '0') + '「' + r.title.w.title + '」').slice(0, COLW); for (let i = 0; i < tt.length; i++) { const c = cellRoom(r, i); glyphAt(c[0], c[1], c[2], tt[i], BG); } }
+        return;
+      }
+      if (px < 3.5) {                      // 중간: 글줄을 선으로
+        g.setTransform(DPR, 0, 0, DPR, 0, 0); g.globalAlpha = .55; g.fillStyle = FG; const e = cellRoom(r, r.n - 1), mid = p => [(p[0][0] + p[2][0]) / 2, (p[0][1] + p[2][1]) / 2];
+        const p0 = mid(a), p1 = mid(e), dx = (a[2][0] - a[0][0]) * .2, dy = (a[2][1] - a[0][1]) * .2, q1 = [e[1][0] + (e[2][0] - e[0][0]) / 2, e[1][1] + (e[2][1] - e[0][1]) / 2];
+        g.beginPath(); poly([[p0[0] - dx, p0[1] - dy], [q1[0] - dx, q1[1] - dy], [q1[0] + dx, q1[1] + dy], [p0[0] + dx, p0[1] + dy]]); g.fill(); g.globalAlpha = 1; return;
+      }
+      const ch = r.wk.ch; for (let i = 0; i < r.n; i++) { const c = cellRoom(r, i); glyphAt(c[0], c[1], c[2], ch[r.g0 + i], FG); }
+    });
+    // 방의 모서리선과 앞면
+    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.strokeStyle = FG; g.lineWidth = Math.max(1, s * .4 * G.cs);
+    const f = [[G.X0, G.Y0], [G.X0 + 2 * G.HW, G.Y0], [G.X0 + 2 * G.HW, G.Y0 + 2 * G.HH], [G.X0, G.Y0 + 2 * G.HH]];
+    g.beginPath(); f.forEach(p => { const q = PJ(p[0], p[1], ZB); g.moveTo(X(p[0]), Y(p[1])); g.lineTo(X(q[0]), Y(q[1])); }); g.stroke();
+    // 천장·바닥의 단 사이(골)를 모서리처럼
+    g.lineWidth = Math.max(.5, s * .15 * G.cs); g.globalAlpha = .5; g.beginPath();
+    for (let c = 1; c < G.NCc; c++) { const x = G.XC + (c * PITCH - GUT / 2) * G.cs; [G.Y0, G.Y0 + 2 * G.HH].forEach(y => { const q = PJ(x, y, ZB); g.moveTo(X(x), Y(y)); g.lineTo(X(q[0]), Y(q[1])); }); }
+    g.stroke(); g.globalAlpha = 1;
+  });
+  // 맨 안쪽 심지: 「건축무한육면각체」 — 본문이 아직 없다
+  const G = L.geos[L.geos.length - 1], k = 0.5, HW = G.HW * k, HH = G.HH * k;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0); g.fillStyle = FG; g.fillRect(X(L.vpx - HW), Y(L.vpy - HH), 2 * HW * s, 2 * HH * s);
+  const fs = HH * s * 0.16;
+  if (fs >= 4) {
+    g.fillStyle = BG; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '800 ' + fs.toFixed(1) + 'px ' + SERIF; g.fillText('建築無限六面角體', X(L.vpx), Y(L.vpy - HH * .25));
+    g.font = '700 ' + (fs * .55).toFixed(1) + 'px ' + SERIF; g.fillText('原文 未收 · ' + CORE.length + '篇', X(L.vpx), Y(L.vpy + HH * .2));
+  }
+}
+
+/* ---------- 호버: 판 좌표 → 글자 ---------- */
+const flatIdx = new Map(); L.flat.forEach(r => flatIdx.set(r.x + ':' + r.y, r));
+function pick(px, py) {
+  const ux = (px - cam.x) / cam.s, uy = (py - cam.y) / cam.s;
+  const r = flatIdx.get((MARG + Math.floor((ux - MARG) / PITCH) * PITCH) + ':' + Math.floor(uy));
+  if (r) { const i = Math.floor(ux - r.x); if (i >= 0 && i < r.n) return { it: r.wk, g: r.g0 + i, where: '바깥 단' }; }
+  for (const v of L.vblocks) if (ux >= v.x && ux < v.x + COLW && uy >= v.y && uy < v.y + v.h) { const l = v.x + COLW - 1 - Math.floor(ux), k = Math.floor(uy - v.y), i = l * v.h + k; if (i < v.n) return { it: v.wk, g: v.g0 + i, where: '바깥 단 · 세로쓰기' }; }
+  for (const h of L.heads) if (ux >= h.x && ux < h.x + COLW && uy >= h.y && uy < h.y + HEAD) return { it: h.it, g: null, where: '표제' };
+  for (const e of L.empties) if (ux >= e.x && ux < e.x + COLW && uy >= e.y && uy < e.y + EMPTYH) return { empty: e.w };
+  // 방: 바깥 겹부터. 그 겹의 앞면 안, 뒷벽 밖이면 그 겹의 벽
+  for (const G of L.geos) {
+    const dx = ux - L.vpx, dy = uy - L.vpy;
+    if (Math.abs(dx) > G.HW || Math.abs(dy) > G.HH) break;
+    if (Math.abs(dx) <= G.HW / ZB && Math.abs(dy) <= G.HH / ZB) continue;
+    let wall, a, b, i;
+    if (Math.abs(dy) / G.HH > Math.abs(dx) / G.HW) {   // 천장·바닥
+      const z = G.HH / Math.abs(dy), x = L.vpx + dx * z, q = (x - G.XC) / G.cs; b = Math.floor(q / PITCH); i = Math.floor(q - b * PITCH);
+      if (dy < 0) { wall = 'T'; a = Math.floor((z - 1) / G.dzc); } else { wall = 'F'; a = Math.floor((ZB - z) / G.dzc); }
+    } else {
+      const z = G.HW / Math.abs(dx), y = L.vpy + dy * z, qd = Math.floor((z - 1) / G.dzs); a = Math.floor((y - G.YS) / G.cs); b = Math.floor(qd / PITCH); const p = qd - b * PITCH;
+      if (dx < 0) { wall = 'L'; i = p; } else { wall = 'R'; i = COLW - 1 - p; }
+    }
+    const sl = L.rmap.get(G.lv + '|' + wall + '|' + a + '|' + b); if (!sl) return null;
+    if (sl.title) return { it: sl.title, g: null, where: '방 · ' + (G.lv ? G.lv + '겹 안' : '앞방') };
+    if (i < 0 || i >= sl.n) return { it: sl.wk, g: null, where: '방' };
+    return { it: sl.wk, g: sl.g0 + i, where: '방 · ' + ({ T: '천장', F: '바닥', L: '왼벽', R: '오른벽' })[wall] + (G.lv ? ' · ' + G.lv + '겹 안' : '') };
+  }
+  const C0 = L.geos[L.geos.length - 1]; if (Math.abs(ux - L.vpx) <= C0.HW / 2 && Math.abs(uy - L.vpy) <= C0.HH / 2) return { core: true };
+  return null;
+}
+function bar(p) {
+  const el = $('bar'); if (!p) { el.innerHTML = ''; return; }
+  if (p.core) { el.innerHTML = '<b>1932-詩-01</b><span>「건축무한육면각체」 연작 ' + CORE.length + '편 · 원문 미수(PDF 전사 대기) · 방의 맨 안쪽</span>'; return; }
+  if (p.empty) { el.innerHTML = '<b>' + p.empty.addr + '</b><span>「' + p.empty.title + '」 · ' + p.empty.addrKo + ' · 원문 미수 · 빈 방</span>'; return; }
+  const it = p.it, w = it.w;
+  if (p.g == null) { el.innerHTML = '<b>' + w.addr + '</b><span>「' + w.title + '」 · ' + w.addrKo + ' · ' + it.ch.length.toLocaleString() + '字 · ' + p.where + '</span>'; return; }
+  const row = Math.floor(p.g / 20) + 1, col = p.g % 20 + 1;
+  el.innerHTML = '<b>' + w.addr + ' / ' + it.face + ' / ' + String(row).padStart(2, '0') + '-' + String(col).padStart(2, '0') + '</b><span>「' + w.title + '」 · ' + w.addrKo + ' · ' + row + '행 ' + col + '열 · 「' + it.ch[p.g] + '」 · 第' + (p.g + 1) + '字 · ' + p.where + '</span>';
+}
+
+/* ---------- 조작 ---------- */
+let drag = null, raf = 0;
+const redraw = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
+function resize() { DPR = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; }
+cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (drag) { cam.x = drag.cx + e.clientX - drag.x; cam.y = drag.cy + e.clientY - drag.y; redraw(); return; } bar(pick(e.clientX, e.clientY)); });
+cv.addEventListener('pointerup', () => { drag = null; });
+cv.addEventListener('pointerleave', () => bar(null));
+cv.addEventListener('wheel', e => { e.preventDefault(); const k = Math.exp(-e.deltaY * 0.0016), ux = (e.clientX - cam.x) / cam.s, uy = (e.clientY - cam.y) / cam.s;
+  cam.s = Math.max(0.2, Math.min(60, cam.s * k)); cam.x = e.clientX - ux * cam.s; cam.y = e.clientY - uy * cam.s; redraw(); }, { passive: false });
+cv.addEventListener('dblclick', () => { fit(); redraw(); });
+addEventListener('resize', () => { resize(); fit(); redraw(); });
+resize(); fit(); draw(); $('msg').remove();
+})();
+</script>
+</body>
+</html>
