@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>李箱 단면도</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;600&family=Nanum+Myeongjo:wght@700;800&display=swap">
+<style>
+/* 단면도: 구룡성채 단면처럼, 잘라낸 건물 안에 작은 방이 빽빽하다. 방 하나 = 원고지 반 장 안팎. 喀血 두 색. */
+:root{--bg:#7A1424;--fg:#66E6D2;--line:rgba(102,230,210,.45);--serif:"Nanum Myeongjo","Batang",serif;--mono:"IBM Plex Mono",ui-monospace,monospace;--sans:"IBM Plex Sans KR",sans-serif;color-scheme:dark}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);overflow:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+header{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--bg)}
+header a{display:flex;align-items:center;padding:0 20px;font-family:var(--serif);font-weight:800;font-size:22px;color:var(--fg);text-decoration:none;border-right:1px solid var(--line)}
+#bar{flex:1;min-width:0;display:flex;align-items:center;gap:16px;padding:0 20px;min-height:48px;font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden}
+#bar b{font-weight:600;flex:0 0 auto}#bar span{overflow:hidden;text-overflow:ellipsis}
+#c{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#c:active{cursor:grabbing}
+#help{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:4;font-family:var(--mono);font-size:11px;line-height:1.7;background:var(--bg);padding:8px 12px;border:1px solid var(--line)}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:24px;z-index:4;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="이상의 글로 지은 건물의 단면도. 휠로 확대하면 방 안의 글자가 보입니다."></canvas>
+<header><a href="../">李箱</a><div id="bar" aria-live="off"></div></header>
+<div id="msg">짓는 중이오</div>
+<div id="help">휠 · 확대　끌기 · 이동　두 번 누르기 · 전체<br>방에 커서를 올리면 그 글자의 주소</div>
+<script>
+(async function(){
+'use strict';
+const BG = '#7A1424', FG = '#66E6D2';
+const $ = id => document.getElementById(id);
+let WORKS, TEXTS;
+try { const [a, b] = await Promise.all([fetch('../data/works.json'), fetch('../data/texts.json')]); WORKS = await a.json(); TEXTS = await b.json(); }
+catch (e) { $('msg').textContent = '데이터를 불러오지 못했소. 서버에서 여시오.'; return; }
+if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('700 20px "Nanum Myeongjo"', '李箱가'), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} }
+
+/* ---------- 재료: 공백·줄바꿈을 뺀 글자 ---------- */
+const parents = new Set(WORKS.filter(w => w.parent).map(w => w.parent));
+const yr = w => w.floor === 'B1' ? '9999' : w.floor;
+const items = WORKS.filter(w => TEXTS[w.id] && !parents.has(w.title)).map(w => ({ w, ch: Array.from(TEXTS[w.id].text).filter(c => !/\s/.test(c)), face: TEXTS[w.id].kind === '한국어 번역문' ? '背' : '正' }))
+  .sort((a, b) => yr(a.w).localeCompare(yr(b.w)) || a.w.no - b.w.no);
+
+/* ---------- 동: 시기별로 네 동. 동 사이는 골목 ---------- */
+const TOWERS = [
+  { name: '1930—1933', test: y => y <= '1933', bays: 30 },
+  { name: '1934—1936', test: y => y >= '1934' && y <= '1936', bays: 46 },
+  { name: '1937—1939', test: y => y >= '1937' && y <= '1939', bays: 40 },
+  { name: '1940—', test: y => y >= '1940', bays: 16 }
+];
+const BAYW = [5, 7, 6, 8, 4, 9, 6, 5, 7, 10, 6, 4, 8];   // 방 폭(글자 칸), 불규칙
+const STOREY = [3, 4, 3, 5, 4, 3, 6, 4, 3, 5];           // 층고(줄), 불규칙
+const SHORT = 120;   // 이보다 짧은 글은 옥탑방이나 바깥벽에 매단 발코니가 된다
+const rooms = [], works = [], balconies = [], labels = [];
+let x0 = 0, maxTop = 0;
+TOWERS.forEach((T, ti) => {
+  const list = items.filter(it => T.test(yr(it.w)));
+  // 동 하나를 폭이 다른 여러 채로 나눈다. 채마다 높이가 달라져 지붕선이 들쭉날쭉해진다(구룡성채처럼 붙은 건물들).
+  const SL = [9, 13, 6, 11, 15, 8, 12, 7, 10];
+  const slices = []; let bx = x0, bi = 0, si = 0;
+  while (bi < T.bays) {
+    const n = Math.min(SL[(si + ti * 2) % SL.length], T.bays - bi), bays = [];
+    for (let i = 0; i < n; i++, bi++) { const w = BAYW[(bi * 7 + ti * 3) % BAYW.length]; bays.push({ x: bx, w }); bx += w; }
+    slices.push({ bays, si, bias: ((si * 37 + ti * 11) % 5) * 8, st: 0, y: 0, sh: STOREY[(si * 3 + ti) % STOREY.length], bay: 0, dir: 1, x0: bays[0].x, x1: bx }); si++;
+  }
+  T.x0 = x0; T.x1 = bx;
+  const shorts = [];
+  list.forEach(it => {
+    if (it.ch.length < SHORT) { shorts.push(it); return; }
+    // 지금 가장 낮은 채에 들인다. 채마다 고정된 덤(0~32줄)을 얹어 높이가 고르지 않게 한다.
+    const lowest = () => slices.reduce((m, q) => (q.y + q.bias < m.y + m.bias ? q : m));
+    let S = lowest();
+    const wk = { it, rooms: [] }; works.push(wk);
+    let g = 0;
+    while (g < it.ch.length) {
+      // 긴 글(3000자 이상)은 한 층을 다 채울 때마다 가장 낮은 채로 옮겨 가며 옆 건물까지 번진다
+      if (it.ch.length >= 3000 && S.bay === (S.dir > 0 ? 0 : S.bays.length - 1) && g > 0) S = lowest();
+      const B = S.bays[S.bay], cap = B.w * S.sh;
+      const r = { wk, x: B.x, y: S.y, w: B.w, h: S.sh, g0: g, n: Math.min(cap, it.ch.length - g), ti, si: S.si, st: S.st, bi: S.bay };
+      rooms.push(r); wk.rooms.push(r); g += r.n;
+      S.bay += S.dir;
+      if (S.bay < 0 || S.bay >= S.bays.length) { S.st++; S.y += S.sh; S.sh = STOREY[(S.st * 3 + S.si + ti) % STOREY.length]; S.dir = -S.dir; S.bay = S.dir > 0 ? 0 : S.bays.length - 1; }
+    }
+    if (it.ch.length >= 8000) labels.push({ t: '「' + it.w.title + '」', room: wk.rooms[Math.floor(wk.rooms.length / 2)], kind: 'work' });
+  });
+  slices.forEach(S => { S.top = Math.max(0, ...rooms.filter(r => r.ti === ti && r.si === S.si).map(r => r.y + r.h)); S.roofX = S.x0 + 2; S.roofY = S.top; S.roofH = 0; });
+  T.slices = slices;
+  T.top = Math.max(...slices.map(S => S.top));
+  // 짧은 글: 둘 중 하나는 어느 채의 옥탑방, 나머지는 바깥벽 발코니
+  let wallN = 0; const wallTotal = shorts.filter((_, i) => i % 2).length || 1;
+  shorts.forEach((it, i) => {
+    const cols = 6, rows = Math.ceil(it.ch.length / cols); let b;
+    if (i % 2 === 0) {
+      const S = slices[(i * 5 + 1) % slices.length];
+      if (S.roofX + cols > S.x1 - 1) { S.roofX = S.x0 + 3; S.roofY += S.roofH + 1; S.roofH = 0; }
+      b = { it, x: S.roofX, y: S.roofY, cols, rows, kind: 'roof' }; S.roofX += cols + 3; S.roofH = Math.max(S.roofH, rows);
+    } else {
+      const side = wallN % 2, hy = Math.round((0.12 + 0.78 * (wallN + .5) / wallTotal) * (side ? slices[slices.length - 1].top : slices[0].top)); wallN++;
+      b = { it, x: side ? T.x1 + 1 : T.x0 - 1 - cols, y: hy, cols, rows, kind: 'wall', side };
+    }
+    balconies.push(b); works.push({ it, rooms: [], bal: b });
+  });
+  T.roofTop = Math.max(...slices.map(S => S.roofY + S.roofH));
+  labels.push({ t: T.name, x: (T.x0 + T.x1) / 2, y: Math.max(T.top, T.roofTop) + 6, kind: 'tower' });
+  maxTop = Math.max(maxTop, T.top, T.roofTop);
+  x0 = bx + 18;                            // 골목
+});
+const W = x0 - 18;
+/* 세대(작품) 경계: 오른쪽·위쪽 이웃이 다른 작품이면 굵은 선 (같은 동의 방은 층마다 같은 칸에 놓인다) */
+const pos = new Map(); rooms.forEach(r => pos.set(r.ti + ':' + r.si + ':' + r.st + ':' + r.bi, r));
+rooms.forEach(r => {
+  const right = pos.get(r.ti + ':' + r.si + ':' + r.st + ':' + (r.bi + 1)), up = pos.get(r.ti + ':' + r.si + ':' + (r.st + 1) + ':' + r.bi);
+  r.bR = !right || right.wk !== r.wk; r.bU = !up || up.wk !== r.wk;
+});
+
+/* ---------- 보기 ---------- */
+const cv = $('c'), g = cv.getContext('2d');
+let cam = { s: 1, x: 0, y: 0 }, hover = null;
+function fit() {
+  const pad = 60, top = 70, bottom = 60;
+  const s = Math.min((innerWidth - pad * 2) / (W + 20), (innerHeight - top - bottom) / (maxTop + 4));
+  cam.s = s; cam.x = (innerWidth - W * s) / 2; cam.y = innerHeight - bottom;
+}
+const X = u => cam.x + u * cam.s, Y = u => cam.y - u * cam.s;
+const SERIF = '"Nanum Myeongjo", "Batang", serif';
+function drawText(chs, g0, n, x, y, cols, rows, s) {
+  // x,y: 방의 왼쪽 아래(단위). 글은 위 줄부터 채운다.
+  if (s < 5) {                                         // 멀리서: 글줄을 가는 선으로
+    g.globalAlpha = .55; g.fillStyle = FG;
+    const full = Math.floor(n / cols), rest = n % cols;
+    for (let r = 0; r < Math.min(rows, full + (rest ? 1 : 0)); r++) {
+      const len = r < full ? cols : rest; const yy = Y(y + rows - r - 0.55);
+      g.fillRect(X(x + 0.2), yy, Math.max(.5, (len - 0.4) * s), Math.max(.5, s * .35));
+    }
+    g.globalAlpha = 1; return;
+  }
+  g.fillStyle = FG; g.font = '700 ' + (s * .78).toFixed(1) + 'px ' + SERIF; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) {
+    const r = Math.floor(i / cols), c = i % cols;
+    const px = X(x + c + .5), py = Y(y + rows - r - .5);
+    if (px < -s || px > innerWidth + s || py < -s || py > innerHeight + s) continue;
+    g.fillText(chs[g0 + i], px, py);
+  }
+}
+function draw() {
+  const dpr = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = BG; g.fillRect(0, 0, innerWidth, innerHeight);
+  const s = cam.s, vis = r => !(X(r.x + r.w) < 0 || X(r.x) > innerWidth || Y(r.y + r.h) > innerHeight || Y(r.y) < 0);
+  // 방 안의 글
+  rooms.forEach(r => { if (vis(r)) drawText(r.wk.it.ch, r.g0, r.n, r.x, r.y, r.w, r.h, s); });
+  // 방 칸막이(가는 선)
+  g.strokeStyle = FG; g.lineWidth = 1; g.globalAlpha = .5;
+  rooms.forEach(r => { if (vis(r)) g.strokeRect(X(r.x), Y(r.y + r.h), r.w * s, r.h * s); });
+  g.globalAlpha = 1;
+  // 한 세대(작품)의 테두리: 다른 작품과 맞닿는 변을 굵게
+  g.lineWidth = Math.max(1.5, s * .28); g.beginPath();
+  rooms.forEach(r => {
+    if (!vis(r)) return;
+    if (r.bR) { g.moveTo(X(r.x + r.w), Y(r.y)); g.lineTo(X(r.x + r.w), Y(r.y + r.h)); }
+    if (r.bU) { g.moveTo(X(r.x), Y(r.y + r.h)); g.lineTo(X(r.x + r.w), Y(r.y + r.h)); }
+  });
+  g.stroke();
+  // 골조: 땅과 동의 바깥벽
+  g.lineWidth = Math.max(2, s * .5);
+  TOWERS.forEach(T => { g.beginPath(); T.slices.forEach(S => { g.moveTo(X(S.x0), Y(0)); g.lineTo(X(S.x0), Y(S.top)); g.lineTo(X(S.x1), Y(S.top)); g.lineTo(X(S.x1), Y(0)); }); g.stroke(); });
+  g.beginPath(); g.moveTo(X(-30), Y(0)); g.lineTo(X(W + 30), Y(0)); g.stroke();
+  // 발코니: 바깥벽에 매단 철망 상자
+  balconies.forEach(b => {
+    const bx = X(b.x), by = Y(b.y + b.rows), bw = b.cols * s, bh = b.rows * s;
+    g.lineWidth = 1; g.setLineDash([Math.max(2, s * .4), Math.max(2, s * .3)]); g.strokeRect(bx, by, bw, bh); g.setLineDash([]);
+    if (b.kind === 'wall') { g.beginPath(); const wallX = b.side ? X(b.x - 1) : X(b.x + b.cols + 1);
+      g.moveTo(b.side ? bx : bx + bw, by + bh); g.lineTo(wallX, by + bh + s * 1.2); g.moveTo(b.side ? bx : bx + bw, by); g.lineTo(wallX, by); g.stroke(); }
+    else { g.beginPath(); g.moveTo(bx - s * .6, by); g.lineTo(bx + bw / 2, by - s * 1.4); g.lineTo(bx + bw + s * .6, by); g.stroke(); }
+    drawText(b.it.ch, 0, b.it.ch.length, b.x, b.y, b.cols, b.rows, s);
+  });
+  // 주기: 연도와 긴 글의 제목, 지시선
+  g.font = '600 ' + Math.max(11, Math.min(15, s * 2.2)).toFixed(0) + 'px "IBM Plex Mono", monospace'; g.textBaseline = 'middle';
+  labels.forEach(l => {
+    if (l.kind === 'tower') { g.textAlign = 'center'; g.fillStyle = FG; g.fillText(l.t, X(l.x), Y(l.y)); return; }
+    if (l.kind === 'year') {
+      const lx = X(l.x), ly = Y(l.y);
+      g.textAlign = 'right'; g.fillStyle = FG; g.fillText(l.t, lx - 10, ly - 8);
+      g.beginPath(); g.moveTo(lx - 6, ly); g.lineTo(lx, ly); g.lineWidth = 1.5; g.stroke();
+    } else {
+      const r = l.room, rx = X(r.x + r.w / 2), ry = Y(r.y + r.h / 2);
+      const tx = rx + 40, ty = ry - 30;
+      g.lineWidth = 1; g.beginPath(); g.arc(rx, ry, 3, 0, Math.PI * 2); g.fill(); g.moveTo(rx, ry); g.lineTo(tx, ty); g.lineTo(tx + 8, ty); g.stroke();
+      g.textAlign = 'left'; g.font = '700 ' + Math.max(12, Math.min(18, s * 2.6)).toFixed(0) + 'px ' + SERIF;
+      const m = g.measureText(l.t).width; g.fillStyle = BG; g.fillRect(tx + 10, ty - 10, m + 8, 20); g.fillStyle = FG; g.fillText(l.t, tx + 14, ty);
+      g.font = '600 ' + Math.max(11, Math.min(15, s * 2.2)).toFixed(0) + 'px "IBM Plex Mono", monospace';
+    }
+  });
+  // 호버한 세대
+  if (hover) { g.lineWidth = 2.5; g.setLineDash([5, 4]); (hover.wk.bal ? [hover.wk.bal] : hover.wk.rooms).forEach(r => { const w = (r.cols || r.w), h = (r.rows || r.h); g.strokeRect(X(r.x) - 2, Y(r.y + h) - 2, w * s + 4, h * s + 4); }); g.setLineDash([]); }
+}
+
+/* ---------- 호버: 글자의 주소 ---------- */
+const SEC_KO = { '詩': '시', '小說': '소설', '隨筆': '수필', '發掘': '발굴', '書簡·其他': '편지·기타' };
+function pick(px, py) {
+  const ux = (px - cam.x) / cam.s, uy = (cam.y - py) / cam.s;
+  for (const r of rooms) if (ux >= r.x && ux < r.x + r.w && uy >= r.y && uy < r.y + r.h) {
+    const c = Math.floor(ux - r.x), row = Math.floor(r.y + r.h - uy), i = row * r.w + c;
+    return { wk: r.wk, g: i < r.n ? r.g0 + i : null };
+  }
+  for (const b of balconies) if (ux >= b.x && ux < b.x + b.cols && uy >= b.y && uy < b.y + b.rows) {
+    const c = Math.floor(ux - b.x), row = Math.floor(b.y + b.rows - uy), i = row * b.cols + c;
+    return { wk: works.find(w => w.bal === b), g: i < b.it.ch.length ? i : null };
+  }
+  return null;
+}
+function bar(p) {
+  const el = $('bar'); if (!p) { el.innerHTML = ''; return; }
+  const it = p.wk.it, w = it.w;
+  if (p.g == null) { el.innerHTML = '<b>' + w.addr + '</b><span>「' + w.title + '」 · ' + w.addrKo + ' · ' + it.ch.length.toLocaleString() + '字 · ' + (p.wk.bal ? (p.wk.bal.kind === 'roof' ? '옥탑방' : '발코니') : '방 ' + p.wk.rooms.length + '칸') + '</span>'; return; }
+  const row = Math.floor(p.g / 20) + 1, col = p.g % 20 + 1;
+  el.innerHTML = '<b>' + w.addr + ' / ' + it.face + ' / ' + String(row).padStart(2, '0') + '-' + String(col).padStart(2, '0') + '</b><span>「' + w.title + '」 · ' + w.addrKo + ' · ' + row + '행 ' + col + '열 · 「' + it.ch[p.g] + '」 · 第' + (p.g + 1) + '字 · ' + (p.wk.bal ? (p.wk.bal.kind === 'roof' ? '옥탑방' : '발코니') : '방 ' + p.wk.rooms.length + '칸') + '</span>';
+}
+let drag = null, raf = 0;
+const redraw = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
+cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  if (drag) { cam.x = drag.cx + e.clientX - drag.x; cam.y = drag.cy + e.clientY - drag.y; redraw(); return; }
+  const p = pick(e.clientX, e.clientY); bar(p); const wk = p && p.wk; if (wk !== (hover && hover.wk)) { hover = p; redraw(); }
+});
+cv.addEventListener('pointerup', () => { drag = null; });
+cv.addEventListener('pointerleave', () => { bar(null); if (hover) { hover = null; redraw(); } });
+cv.addEventListener('wheel', e => { e.preventDefault(); const k = Math.exp(-e.deltaY * 0.0016), ux = (e.clientX - cam.x) / cam.s, uy = (cam.y - e.clientY) / cam.s;
+  cam.s = Math.max(0.2, Math.min(40, cam.s * k)); cam.x = e.clientX - ux * cam.s; cam.y = e.clientY + uy * cam.s; redraw(); }, { passive: false });
+cv.addEventListener('dblclick', () => { fit(); redraw(); });
+addEventListener('resize', () => { fit(); redraw(); });
+fit(); draw(); $('msg').remove();
+})();
+</script>
+</body>
+</html>
