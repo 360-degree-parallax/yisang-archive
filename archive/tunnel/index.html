@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>李箱 六面角體</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;600&family=Nanum+Myeongjo:wght@700;800&display=swap">
+<style>
+/* 六面角體: 네모 안의 네모. 바깥 고리가 2026년, 안으로 들어갈수록 1930년. 1937년 바깥은 증축 구역.
+   좌우 벽 = 국문, 천장·바닥 = 일문(돌아가 있다). 글줄은 안쪽으로 달린다. 평면 캔버스, 한 점 투시. */
+:root{--bg:#7A1424;--fg:#66E6D2;--line:rgba(102,230,210,.45);--serif:"Nanum Myeongjo","Batang",serif;--mono:"IBM Plex Mono",ui-monospace,monospace;--sans:"IBM Plex Sans KR",sans-serif;color-scheme:dark}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);overflow:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+header{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--bg)}
+header a{display:flex;align-items:center;padding:0 20px;font-family:var(--serif);font-weight:800;font-size:22px;color:var(--fg);text-decoration:none;border-right:1px solid var(--line)}
+#bar{flex:1;min-width:0;display:flex;align-items:center;gap:16px;padding:0 20px;min-height:48px;font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden}
+#bar b{font-weight:600;flex:0 0 auto}#bar span{overflow:hidden;text-overflow:ellipsis}
+#c{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+#help{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:4;font-family:var(--mono);font-size:11px;line-height:1.7;background:var(--bg);padding:8px 12px;border:1px solid var(--line);max-width:calc(100vw - 64px)}
+#years{display:flex;flex-wrap:wrap;gap:0 10px;margin-top:4px}
+#years button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+#years button[aria-current="true"]{background:var(--fg);color:var(--bg);text-decoration:none;padding:0 3px}
+#years i{font-style:normal;opacity:.6}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:24px;z-index:4;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="이상의 글로 그린 네모 안의 네모 터널. 바깥 고리가 2026년, 안쪽으로 갈수록 1930년. 휠로 걸어 들어가면 벽의 글자가 보입니다."></canvas>
+<header><a href="../">李箱</a><div id="bar" aria-live="off"></div></header>
+<div id="msg">짓는 중이오</div>
+<div id="help">휠 · 걸어 들어가기/나오기　끌기 · 벽 쪽으로 붙기　두 번 누르기 · 처음으로<br>좌우 벽 국문 · 천장과 바닥 일문 · 글줄은 안쪽으로 달린다(오른쪽 벽은 바깥으로)<div id="years"></div></div>
+<script>
+(async function(){
+'use strict';
+const BG = '#7A1424', FG = '#66E6D2';
+const $ = id => document.getElementById(id);
+let WORKS, TEXTS, RECEPTION = [];
+try { const [a, b] = await Promise.all([fetch('../data/works.json'), fetch('../data/texts.json')]); WORKS = await a.json(); TEXTS = await b.json(); }
+catch (e) { $('msg').textContent = '데이터를 불러오지 못했소. 서버에서 여시오.'; return; }
+// 증축 자료(평론·전시·번역…). [{ "year": 1956, "type": "평론", "title": "…", "target": "w12" }]
+try { const r = await fetch('../data/reception.json'); if (r.ok) RECEPTION = await r.json(); } catch (e) {}
+if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('700 20px "Nanum Myeongjo"', '李箱가'), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} }
+
+/* ---------- 고리: 연도마다 하나. 바깥(깊이 0) = 2026, 안쪽 = 1930, 맨 안 = 연도 미상(B1) ---------- */
+const C = 0.025;              // 원고지 한 칸(벽 폭 2의 1/80)
+const R = Math.round(2 / C);  // 벽 하나를 가로지르는 줄 수
+const BAND = 20 * C;          // 원고지 한 줄(20칸)이 안쪽으로 차지하는 깊이
+const EMPTY = 0.05;           // 글이 없는 해의 두께
+const NOW = 2026;
+const parents = new Set(WORKS.filter(w => w.parent).map(w => w.parent));
+const byYear = new Map();
+WORKS.forEach(w => {
+  if (!TEXTS[w.id] || parents.has(w.title)) return;
+  const y = w.floor === 'B1' ? 'B1' : +w.floor;
+  const ch = Array.from(TEXTS[w.id].text).filter(c => !/\s/.test(c));
+  const lang = TEXTS[w.id].kind === '한국어 번역문' ? 'J' : 'K';
+  if (!byYear.has(y)) byYear.set(y, []);
+  byYear.get(y).push({ w, ch, lang, face: lang === 'J' ? '背' : '正' });
+});
+const YEARS = []; for (let y = NOW; y >= 1930; y--) YEARS.push(y); YEARS.push('B1');
+const WALLS = ['L', 'R', 'T', 'B'];
+// 벽 하나의 칸 배치. ex = 글줄이 달리는 방향(깊이), ey = 줄이 쌓이는 방향(벽을 가로질러). 글자가 뒤집히지 않게 방향을 고른다
+const WALL = {
+  L: { at: u => [-1, u], inward: true,  sgn: 1 },
+  R: { at: u => [1, u],  inward: false, sgn: 1 },
+  T: { at: u => [u, -1], inward: true,  sgn: -1 },
+  B: { at: u => [u, 1],  inward: true,  sgn: 1 }
+};
+const slabs = []; let depth = 0;
+const works = [];
+YEARS.forEach(y => {
+  const list = (byYear.get(y) || []).sort((a, b) => a.w.no - b.w.no);
+  const slab = { y, d0: depth, rows: { L: new Map(), R: new Map(), T: new Map(), B: new Map() }, bands: 0, n: { K: 0, J: 0 } };
+  // 국문은 좌우 벽 한 쌍, 일문은 천장·바닥 한 쌍에 원고지 줄을 번갈아 채운다(한 줄 = 20자, 작품마다 제목 줄을 먼저)
+  const cursor = { K: 0, J: 0 };
+  const put = (lang, row) => {
+    const i = cursor[lang]++, band = Math.floor(i / (2 * R)), wall = (lang === 'K' ? ['L', 'R'] : ['T', 'B'])[Math.floor(i / R) % 2], r = i % R;
+    row.band = band; row.r = r; row.wall = wall; slab.rows[wall].set(band * R + r, row); slab.bands = Math.max(slab.bands, band + 1);
+    return row;
+  };
+  list.forEach(it => {
+    const wk = { it, y, rows: [] }; works.push(wk);
+    wk.rows.push(put(it.lang, { wk, title: true, g0: 0, n: 0 }));
+    for (let g = 0; g < it.ch.length; g += 20) wk.rows.push(put(it.lang, { wk, g0: g, n: Math.min(20, it.ch.length - g) }));
+  });
+  slab.depth = slab.bands ? slab.bands * BAND + C * 2 : EMPTY;
+  depth += slab.depth; slab.d1 = depth;
+  slabs.push(slab);
+});
+const TOTAL = depth;
+const slabOf = y => slabs.find(s => s.y === y);
+const DEATH = slabOf(1937).d0;   // 1937년 고리의 바깥 = 작가가 죽은 자리
+
+/* ---------- 투시 ---------- */
+const cv = $('c'), g = cv.getContext('2d');
+let W = 0, H = 0, F = 0, OX = 0, OY = 0;
+const cam = { z: -1, x: 0, y: 0 };
+const NEAR = 0.04;
+const P = (x, y, d) => { const t = d - cam.z; return [OX + F * (x - cam.x) / t, OY + F * (y - cam.y) / t]; };
+function resize() {
+  const dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); DPR = dpr;
+  F = Math.min(W, H - 48) / 2 * 0.92; OX = W / 2; OY = 48 + (H - 48) / 2;
+}
+let DPR = 1;
+// 벽 위의 한 점(u: 벽을 가로지르는 좌표, d: 깊이)
+const WP = (w, u, d) => { const [x, y] = WALL[w].at(u); return P(x, y, d); };
+// 줄 r 의 u 범위
+const uOf = (w, r) => WALL[w].sgn > 0 ? -1 + r * C : 1 - (r + 1) * C;
+function quad(w, u0, u1, d0, d1) {
+  const a = WP(w, u0, d0), b = WP(w, u0, d1), c = WP(w, u1, d1), e = WP(w, u1, d0);
+  g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(e[0], e[1]); g.closePath();
+}
+const SERIF = '"Nanum Myeongjo", "Batang", serif', MONO = '"IBM Plex Mono", ui-monospace, monospace';
+function glyph(w, u, d, ch, color) {
+  // 칸 하나의 네 귀를 투시로 보내고, 그 평행사변형에 글자를 얹는다
+  const S = WALL[w];
+  const dA = S.inward ? d : d + C, dB = S.inward ? d + C : d;
+  const uA = S.sgn > 0 ? u : u + C, uB = S.sgn > 0 ? u + C : u;
+  const o = WP(w, uA, dA), ex = WP(w, uA, dB), ey = WP(w, uB, dA);
+  g.setTransform(DPR * (ex[0] - o[0]) / 100, DPR * (ex[1] - o[1]) / 100, DPR * (ey[0] - o[0]) / 100, DPR * (ey[1] - o[1]) / 100, DPR * o[0], DPR * o[1]);
+  g.fillStyle = color; g.fillText(ch, 50, 56);
+}
+function draw() {
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.fillStyle = BG; g.fillRect(0, 0, W, H);
+  const zmin = cam.z + NEAR;
+  // 안쪽부터 바깥으로 그려 가까운 것이 위에 오게
+  for (let si = slabs.length - 1; si >= 0; si--) {
+    const s = slabs[si]; if (s.d1 <= zmin) continue;
+    const d0 = Math.max(s.d0, zmin);
+    WALLS.forEach(w => {
+      const rows = s.rows[w]; if (!rows.size) return;
+      const tNear = d0 - cam.z, rowPx = F * C / tNear;
+      if (rowPx < 1.2) {                     // 멀다: 벽의 글 덩어리를 엷은 판으로
+        const bands = Math.ceil(rows.size / R) ;
+        g.globalAlpha = 0.28; g.fillStyle = FG; g.beginPath(); quad(w, -1, 1, Math.max(s.d0 + C, zmin), Math.max(s.d0 + C + Math.min(bands, s.bands) * BAND, zmin + 1e-3)); g.fill(); g.globalAlpha = 1; return;
+      }
+      g.font = '700 80px ' + SERIF; g.textAlign = 'center'; g.textBaseline = 'middle';
+      rows.forEach(row => {
+        const da = s.d0 + C + row.band * BAND, db = da + BAND;
+        if (db <= zmin) return;
+        const t = Math.max(da, zmin) - cam.z, px = F * C / t;
+        const u = uOf(w, row.r);
+        if (row.title) {                     // 제목 줄: 꽉 찬 띠에 글자를 뒤집어
+          g.setTransform(DPR, 0, 0, DPR, 0, 0); g.fillStyle = FG; g.beginPath(); quad(w, u + C * .06, u + C * .94, Math.max(da, zmin), db); g.fill();
+          if (px >= 4) { const tt = ('「' + row.wk.it.w.title + '」' + row.wk.it.w.addr).slice(0, 20); for (let i = 0; i < tt.length; i++) { const d = S0(w, da, i); if (d > zmin) glyph(w, u, d, tt[i], BG); } }
+          return;
+        }
+        if (px < 4.5) {                      // 중간: 글줄을 가는 선으로
+          g.setTransform(DPR, 0, 0, DPR, 0, 0); g.globalAlpha = .55; g.fillStyle = FG; g.beginPath();
+          const nd = row.n * C, a = WALL[w].inward ? da : db - nd, b = WALL[w].inward ? da + nd : db;
+          quad(w, u + C * .3, u + C * .7, Math.max(a, zmin), Math.max(b, zmin + 1e-3)); g.fill(); g.globalAlpha = 1; return;
+        }
+        const chs = row.wk.it.ch;
+        for (let i = 0; i < row.n; i++) { const d = S0(w, da, i); if (d > zmin) glyph(w, u, d, chs[row.g0 + i], FG); }
+      });
+      g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    });
+    // 고리(그 해의 바깥 테두리)
+    if (s.d0 > zmin) ring(s);
+  }
+  drawReception(zmin);
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+// 줄 안에서 i번째 칸의 깊이. 오른쪽 벽은 바깥으로 달린다
+const S0 = (w, da, i) => WALL[w].inward ? da + i * C : da + (19 - i) * C;
+function ring(s) {
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const t = s.d0 - cam.z, a = P(-1, -1, s.d0), b = P(1, 1, s.d0), death = s.y === 1937;
+  const lw = death ? Math.max(3, F * 0.05 / t) : (s.bands ? 1.4 : 0.6);
+  if (!s.bands && typeof s.y === 'number' && s.y % 10 && s.y !== 1938) { if (F / t < 30) return; g.globalAlpha = .35; }
+  g.strokeStyle = FG; g.lineWidth = lw; g.strokeRect(a[0], a[1], b[0] - a[0], b[1] - a[1]); g.globalAlpha = 1;
+  const sz = Math.max(9, Math.min(26, F * 0.06 / t));
+  if (s.bands || typeof s.y !== 'number' || s.y % 10 === 0 || death) {
+    g.font = '600 ' + sz.toFixed(0) + 'px ' + MONO; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = FG;
+    const label = death ? '1937 — 李箱 歿' : (s.y === 'B1' ? 'B1 · 연도 미상' : String(s.y));
+    if (death) { const m = g.measureText(label).width; g.fillStyle = FG; g.fillRect(a[0] + lw, a[1] + lw, m + 10, sz + 6); g.fillStyle = BG; }
+    g.fillText(label, a[0] + lw + 5, a[1] + lw + 3);
+  }
+}
+/* 증축 띠: 발표 연도 고리에서 대상 작품의 제목 줄까지 벽을 타고 파고드는 검은 띠 */
+function drawReception(zmin) {
+  if (!RECEPTION.length) return;
+  RECEPTION.forEach((r, i) => {
+    const wk = works.find(w => w.it.w.id === r.target), s = slabOf(+r.year); if (!wk || !s) return;
+    const row = wk.rows[0], ws = slabOf(wk.y), w = row.wall, u = uOf(w, row.r) + ((i % 3) - 1) * C * 0.3;
+    const d0 = Math.max(s.d0, zmin), d1 = ws.d0 + C + row.band * BAND; if (d1 <= zmin) return;
+    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.fillStyle = BG; g.strokeStyle = FG; g.lineWidth = 1.5;
+    g.beginPath(); quad(w, u - C * 1.2, u + C * 2.2, d0, d1); g.fill(); g.stroke();
+    const px = F * C / (d0 - cam.z);
+    if (px >= 4) { g.font = '700 80px ' + SERIF; g.textAlign = 'center'; g.textBaseline = 'middle'; const tt = (r.year + ' ' + (r.type || '') + ' ' + r.title); for (let k = 0; k < tt.length; k++) { const d = s.d0 + C + k * C; if (d > zmin && d < d1) glyph(w, u, d, tt[k], FG); } }
+  });
+}
+
+/* ---------- 걷기 ---------- */
+let raf = 0, anim = null;
+const redraw = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); markYear(); }); };
+const clampZ = z => Math.max(-1, Math.min(TOTAL - 0.2, z));
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); anim = null;
+  const t = Math.max(0.3, Math.min(3, nearestGap()));   // 글이 촘촘한 곳에서는 천천히, 빈 해에서는 빠르게
+  cam.z = clampZ(cam.z + e.deltaY * 0.0022 * t); redraw();
+}, { passive: false });
+function nearestGap() { const s = slabs.find(s => s.d1 > cam.z + 0.5); return s && !s.bands ? 3 : 1; }
+let drag = null;
+cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  if (drag) { cam.x = Math.max(-.85, Math.min(.85, drag.cx - (e.clientX - drag.x) / F)); cam.y = Math.max(-.85, Math.min(.85, drag.cy - (e.clientY - drag.y) / F)); redraw(); return; }
+  bar(pick(e.clientX, e.clientY));
+});
+cv.addEventListener('pointerup', () => { drag = null; });
+cv.addEventListener('pointerleave', () => bar(null));
+cv.addEventListener('dblclick', () => fly(-1, 0, 0));
+function fly(z, x, y) {
+  const from = { ...cam }, t0 = performance.now(), dur = 900; anim = true;
+  (function step(t) { if (!anim) return; const k = Math.min(1, (t - t0) / dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    cam.z = from.z + (z - from.z) * e; cam.x = from.x + (x - from.x) * e; cam.y = from.y + (y - from.y) * e; draw(); markYear(); if (k < 1) requestAnimationFrame(step); else anim = null; })(t0);
+}
+addEventListener('resize', () => { resize(); redraw(); });
+
+/* ---------- 연도 바로가기 ---------- */
+const yearsEl = $('years');
+const jumps = slabs.filter(s => s.bands);
+jumps.slice().reverse().forEach(s => {
+  if (s.y === 1938) { const i = document.createElement('i'); i.textContent = '|'; yearsEl.appendChild(i); }
+  const b = document.createElement('button'); b.textContent = s.y === 'B1' ? 'B1' : s.y; b.dataset.d = s.d0;
+  b.addEventListener('click', () => fly(s.d0 - 0.75, 0, 0)); yearsEl.appendChild(b);
+});
+function markYear() { const s = slabs.find(s => s.d1 > cam.z + 0.75) || slabs[slabs.length - 1]; yearsEl.querySelectorAll('button').forEach(b => b.setAttribute('aria-current', +b.dataset.d === s.d0 ? 'true' : 'false')); }
+
+/* ---------- 호버: 그 글자의 주소 ---------- */
+function pick(sx, sy) {
+  const vx = (sx - OX) / F, vy = (sy - OY) / F; let best = null;
+  // 시선이 네 벽 중 어디에 먼저 닿는지
+  [['L', -1, 'x'], ['R', 1, 'x'], ['T', -1, 'y'], ['B', 1, 'y']].forEach(([w, v, ax]) => {
+    const dv = ax === 'x' ? vx : vy, c0 = ax === 'x' ? cam.x : cam.y; if (!dv) return;
+    const t = (v - c0) / dv; if (t <= NEAR) return;
+    const other = ax === 'x' ? cam.y + vy * t : cam.x + vx * t; if (other < -1 || other > 1) return;
+    if (!best || t < best.t) best = { w, t, u: other, d: cam.z + t };
+  });
+  if (!best) return null;
+  const s = slabs.find(s => best.d >= s.d0 && best.d < s.d1); if (!s) return null;
+  const rel = best.d - s.d0 - C; if (rel < 0) return { slab: s };
+  const band = Math.floor(rel / BAND), w = best.w, S = WALL[w];
+  const r = S.sgn > 0 ? Math.floor((best.u + 1) / C) : Math.floor((1 - best.u) / C);
+  let col = Math.floor((rel - band * BAND) / C); if (!S.inward) col = 19 - col;
+  const row = s.rows[w].get(band * R + r); if (!row) return { slab: s };
+  if (row.title) return { wk: row.wk, g: null };
+  return { wk: row.wk, g: col < row.n ? row.g0 + col : null };
+}
+function bar(p) {
+  const el = $('bar'); if (!p) { el.innerHTML = ''; return; }
+  if (!p.wk) { const y = p.slab.y; el.innerHTML = '<b>' + (y === 'B1' ? 'B1' : y + '층') + '</b><span>' + (y === 'B1' ? '연도 미상' : y > 1937 ? '증축 구역 · 歿後 ' + (y - 1937) + '년' : '李箱 ' + (y - 1910) + '세') + '</span>'; return; }
+  const it = p.wk.it, w = it.w, where = it.lang === 'J' ? '일문 · 천장/바닥' : '국문 · 좌우 벽';
+  if (p.g == null) { el.innerHTML = '<b>' + w.addr + '</b><span>「' + w.title + '」 · ' + w.addrKo + ' · ' + it.ch.length.toLocaleString() + '字 · ' + where + '</span>'; return; }
+  const row = Math.floor(p.g / 20) + 1, col = p.g % 20 + 1;
+  el.innerHTML = '<b>' + w.addr + ' / ' + it.face + ' / ' + String(row).padStart(2, '0') + '-' + String(col).padStart(2, '0') + '</b><span>「' + w.title + '」 · ' + w.addrKo + ' · ' + row + '행 ' + col + '열 · 「' + it.ch[p.g] + '」 · 第' + (p.g + 1) + '字 · ' + where + '</span>';
+}
+
+resize(); draw(); markYear(); $('msg').remove();
+})();
+</script>
+</body>
+</html>
