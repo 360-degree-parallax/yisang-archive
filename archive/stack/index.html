@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>李箱 적층</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;600&family=Nanum+Myeongjo:wght@800&display=swap">
+<style>
+/* 3D 적층: 화면 전체가 공간. 맨 위 한 줄은 보기 전환 + 호버한 글자의 주소. 喀血 두 색. */
+:root{--bg:#7A1424;--fg:#66E6D2;--line:rgba(102,230,210,.45);--serif:"Nanum Myeongjo","Batang",serif;--mono:"IBM Plex Mono",ui-monospace,monospace;--sans:"IBM Plex Sans KR",sans-serif;color-scheme:dark}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);overflow:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+header{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:5;display:flex;flex-wrap:wrap;align-items:stretch;border-bottom:1px solid var(--line);background:var(--bg)}
+header a.home{display:flex;align-items:center;padding:0 20px;font-family:var(--serif);font-weight:800;font-size:22px;color:var(--fg);text-decoration:none;border-right:1px solid var(--line)}
+nav{display:flex;border-right:1px solid var(--line)}
+nav button{font:inherit;color:inherit;background:none;border:0;border-right:1px solid var(--line);min-height:48px;padding:0 18px;font-size:14px;font-weight:600;cursor:pointer}
+nav button:last-child{border-right:0}
+nav button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+button:focus-visible,a:focus-visible{outline:2px solid var(--fg);outline-offset:-4px}
+#bar{flex:1;min-width:260px;display:flex;align-items:center;gap:16px;padding:0 20px;font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden}
+#bar b{font-weight:600;flex:0 0 auto}#bar span{overflow:hidden;text-overflow:ellipsis}
+#c{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:800;font-size:24px;z-index:4;pointer-events:none}
+#help{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:4;font-family:var(--mono);font-size:11px;line-height:1.7;background:var(--bg);padding:8px 12px;border:1px solid var(--line)}
+@media (max-width:760px){header a.home{display:none} #bar{min-width:100%;border-top:1px solid var(--line);min-height:36px}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="이상의 글을 모듈로 쌓은 3차원 적층. 끌어서 돌리고, 휠로 다가가면 글자가 보입니다."></canvas>
+<header>
+  <a class="home" href="../">李箱</a>
+  <nav aria-label="보기"><button type="button" data-v="0" aria-pressed="true">「오감도」 연작</button><button type="button" data-v="1" aria-pressed="false">1934년</button><button type="button" data-v="2" aria-pressed="false">전체 띠</button></nav>
+  <div id="bar" aria-live="off"></div>
+</header>
+<div id="msg">쌓는 중이오</div>
+<div id="help">끌기 · 돌리기　오른쪽 끌기 · 옮기기　휠 · 다가가기<br>두 번 누르기 · 그 자리로 다가가 읽기</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script>
+(async function(){
+'use strict';
+const BG = '#7A1424', FG = '#66E6D2';
+const $ = id => document.getElementById(id);
+let WORKS, TEXTS;
+try {
+  const [a, b] = await Promise.all([fetch('../data/works.json'), fetch('../data/texts.json')]);
+  WORKS = await a.json(); TEXTS = await b.json();
+} catch (e) { $('msg').textContent = '데이터를 불러오지 못했소. 서버에서 여시오.'; return; }
+if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('800 32px "Nanum Myeongjo"', '李箱가'), new Promise(r => setTimeout(r, 2500))]); } catch (e) {} }
+
+/* ---------- 끊기: ① 문자 종류가 바뀌면 끊고 ② 기호는 앞에 붙이며 문장 끝에서 닫고 ③ 20자에서 끊는다 ---------- */
+function cls(c) {
+  const o = c.codePointAt(0);
+  if (o >= 0xAC00 && o <= 0xD7A3) return 'H';
+  if ((o >= 0x4E00 && o <= 0x9FFF) || (o >= 0xF900 && o <= 0xFAFF) || (o >= 0x3400 && o <= 0x4DBF)) return 'C';
+  if (o >= 0x3040 && o <= 0x30FF) return 'J';
+  if (/[0-9０-９]/.test(c)) return 'N';
+  if (/[A-Za-z]/.test(c)) return 'L';
+  return 'S';
+}
+function cut(text) {
+  const ch = Array.from(text).filter(c => !/\s/.test(c));
+  const segs = []; let cur = [], k0 = null;
+  const close = () => { if (cur.length) segs.push({ k: k0 || 'H', s: cur }); cur = []; k0 = null; };
+  ch.forEach(c => {
+    const k = cls(c);
+    if (k === 'S') { cur.push(c); if ('.。!?」)'.includes(c)) close(); return; }
+    if (cur.length && k0 && k0 !== k) close();
+    cur.push(c); k0 = k0 || k;
+    if (cur.length >= 20) close();
+  });
+  close();
+  return { ch, segs };
+}
+
+/* ---------- 집: 원고지 줄처럼 모듈을 한 줄씩 채우고, 첫 줄이 맨 위 ---------- */
+const parents = new Set(WORKS.filter(w => w.parent).map(w => w.parent));
+function house(w) {
+  const t = TEXTS[w.id]; if (!t) return null;
+  const { ch, segs } = cut(t.text);
+  const n = ch.length, ty = n < 300 ? 's' : n < 3000 ? 'm' : 'l';
+  const W = ty === 's' ? 10 : ty === 'm' ? 24 : Math.max(60, Math.round(n / 90));
+  const rows = []; let row = [], x = 0, g = 0;
+  segs.forEach(sg => {
+    if (x + sg.s.length > W && row.length) { rows.push(row); row = []; x = 0; }
+    row.push({ k: sg.k, x, n: sg.s.length, g }); x += sg.s.length; g += sg.s.length;
+  });
+  if (row.length) rows.push(row);
+  rows.forEach(r => { const s = r[0].k === 'C' ? -1 : r[0].k === 'N' ? 1 : 0; r.forEach(b => b.x += s); });
+  let mn = 0, mx = 0; rows.forEach(r => r.forEach(b => { mn = Math.min(mn, b.x); mx = Math.max(mx, b.x + b.n); }));
+  rows.forEach(r => r.forEach(b => b.x -= mn));
+  return { w, ch, ty, rows, W: mx - mn, H: rows.length, o: 0, x: 0, y: 0, z: 0, face: t.kind === '한국어 번역문' ? '背' : '正' };
+}
+
+/* ---------- 3차원 쌓기: 높이 지도 위에, 가장 낮은 자리부터. 같으면 가운데 가까이 ---------- */
+function stack(hs, Bx, Bz, ox) {
+  const hm = new Int32Array(Bx * Bz);
+  hs.forEach((h, i) => {
+    h.o = h.ty === 'l' ? 0 : (i % 2);
+    const fx = h.o ? 1 : Math.min(h.W, Bx), fz = h.o ? Math.min(h.W, Bz) : 1;
+    let best = null;
+    for (let z = 0; z + fz <= Bz; z++) for (let x = 0; x + fx <= Bx; x++) {
+      let m = 0;
+      for (let zz = z; zz < z + fz; zz++) { const row = zz * Bx; for (let xx = x; xx < x + fx; xx++) if (hm[row + xx] > m) m = hm[row + xx]; }
+      const d = Math.hypot(x + fx / 2 - Bx / 2, z + fz / 2 - Bz / 2);
+      if (!best || m < best.m || (m === best.m && d < best.d)) best = { x, z, m, d };
+    }
+    h.x = best.x + ox; h.z = best.z; h.y = best.m;
+    for (let zz = best.z; zz < best.z + fz; zz++) for (let xx = best.x; xx < best.x + fx; xx++) hm[zz * Bx + xx] = best.m + h.H;
+  });
+}
+const ord = h => ({ l: 0, m: 1, s: 2 })[h.ty];
+function viewOgamdo() { const hs = WORKS.filter(w => /^시제/.test(w.title)).map(house).filter(Boolean); stack(hs, 40, 40, 0); return hs; }
+function view1934() { const hs = WORKS.filter(w => w.floor === '1934' && !parents.has(w.title)).map(house).filter(Boolean).sort((a, b) => ord(a) - ord(b) || b.W - a.W); const B = Math.max(48, ...hs.map(h => h.W)); stack(hs, B, 40, 0); return hs; }
+function viewAll() {
+  const years = [...new Set(WORKS.map(w => w.floor))].sort(); let ox = 0; const all = [];
+  years.forEach(y => {
+    const hs = WORKS.filter(w => w.floor === y && !parents.has(w.title)).map(house).filter(Boolean).sort((a, b) => ord(a) - ord(b) || b.W - a.W);
+    if (!hs.length) return;
+    const B = Math.max(30, ...hs.map(h => h.ty === 'l' ? h.W : 0));
+    stack(hs, B, 30, ox); all.push(...hs); ox += B + 10;
+  });
+  return all;
+}
+
+/* ---------- three ---------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.setClearColor(BG, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.12; controls.screenSpacePanning = true; controls.zoomSpeed = 1.2;
+
+function tex(draw, w, h) { const c = document.createElement('canvas'); c.width = w || 64; c.height = h || 64; const x = c.getContext('2d'); draw(x, c.width, c.height); const t = new THREE.CanvasTexture(c); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; }
+const edge = tex((x, w, h) => { x.fillStyle = BG; x.fillRect(0, 0, w, h); x.strokeStyle = FG; x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6); });
+const FACES = {
+  H: tex((x, w, h) => { x.fillStyle = FG; x.fillRect(0, 0, w, h); x.strokeStyle = BG; x.lineWidth = 4; x.strokeRect(2, 2, w - 4, h - 4); }),
+  C: tex((x, w, h) => { x.fillStyle = BG; x.fillRect(0, 0, w, h); x.strokeStyle = FG; x.lineWidth = 4; for (let i = -w; i < w * 2; i += 12) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + h, h); x.stroke(); } x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6); }),
+  J: tex((x, w, h) => { x.fillStyle = BG; x.fillRect(0, 0, w, h); x.strokeStyle = FG; x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6); x.beginPath(); x.moveTo(0, 0); x.lineTo(w, h); x.stroke(); }),
+  N: tex((x, w, h) => { x.fillStyle = BG; x.fillRect(0, 0, w, h); x.strokeStyle = FG; x.lineWidth = 4; for (let i = 8; i < w; i += 16) { x.strokeRect(i - 4, 12, 8, h - 24); } x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6); }),
+  L: tex((x, w, h) => { x.fillStyle = FG; x.fillRect(0, 0, w, h); x.fillStyle = BG; x.fillRect(w * .15, h * .3, w * .7, h * .12); x.strokeStyle = BG; x.lineWidth = 4; x.strokeRect(2, 2, w - 4, h - 4); })
+};
+const sideMat = new THREE.MeshBasicMaterial({ map: edge });
+const MATS = {}; Object.keys(FACES).forEach(k => { const m = new THREE.MeshBasicMaterial({ map: FACES[k] }); MATS[k] = [sideMat, sideMat, sideMat, sideMat, m, m]; });
+const box = new THREE.BoxGeometry(1, 1, 1);
+
+let curView = 0, group = null, houses = [], instIndex = {}, chunks = [], active = new Map();
+const GAP = 0.06;
+function worldOf(h, cx, cy) { return h.o ? new THREE.Vector3(h.x + 0.5, h.y + cy + 0.5, h.z + cx) : new THREE.Vector3(h.x + cx, h.y + cy + 0.5, h.z + 0.5); }
+
+function build(v) {
+  if (group) { scene.remove(group); group.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); }
+  active.forEach(m => disposeChunk(m)); active.clear();
+  group = new THREE.Group(); scene.add(group);
+  houses = [viewOgamdo, view1934, viewAll][v]();
+  const per = { H: [], C: [], J: [], N: [], L: [] };
+  chunks = [];
+  houses.forEach(h => h.rows.forEach((r, ri) => {
+    const cy = h.H - 1 - ri;
+    r.forEach(b => { per[b.k].push({ h, b, cy }); });
+    // 글자 조각: 한 줄을 최대 32칸씩
+    let start = r[0].x, end = r[r.length - 1].x + r[r.length - 1].n, g0 = r[0].g;
+    for (let s = 0; s < end - start; s += 32) {
+      const n = Math.min(32, end - start - s);
+      chunks.push({ h, cy, x0: start + s, n, g0: g0 + s, c: worldOf(h, start + s + n / 2, cy) });
+    }
+  }));
+  instIndex = {};
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  Object.keys(per).forEach(k => {
+    const list = per[k]; if (!list.length) return;
+    const im = new THREE.InstancedMesh(box, MATS[k], list.length);
+    list.forEach((it, i) => {
+      const { h, b, cy } = it;
+      sc.set(b.n - GAP, 1 - GAP, 1 - GAP);
+      pos.copy(worldOf(h, b.x + b.n / 2, cy));
+      m4.compose(pos, h.o ? qy : q.identity(), sc); im.setMatrixAt(i, m4);
+    });
+    im.userData.list = list; instIndex[k] = im; group.add(im);
+  });
+  frame();
+}
+
+/* ---------- 가까이 가면 글자 ---------- */
+const CELL = 48;
+function chunkMesh(ck) {
+  const h = ck.h, n = ck.n;
+  const make = back => tex((x, w, hh) => {
+    x.clearRect(0, 0, w, hh);
+    for (let i = 0; i < n; i++) {
+      const lx = ck.x0 + i, blk = h.rows[h.H - 1 - ck.cy].find(b => lx >= b.x && lx < b.x + b.n);
+      if (!blk) continue;
+      const gi = blk.g + (lx - blk.x), chr = h.ch[gi]; if (!chr) continue;
+      const solid = blk.k === 'H' || blk.k === 'L';
+      const col = back ? n - 1 - i : i;
+      x.fillStyle = solid ? FG : BG; x.fillRect(col * CELL + 2, 2, CELL - 4, hh - 4);
+      x.fillStyle = solid ? BG : FG; x.font = '800 ' + Math.round(CELL * .72) + 'px "Nanum Myeongjo", "Batang", serif';
+      x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(chr, col * CELL + CELL / 2, hh / 2 + 2);
+    }
+  }, n * CELL, CELL);
+  const geo = new THREE.PlaneGeometry(n - GAP, 1 - GAP);
+  const g = new THREE.Group();
+  [false, true].forEach(back => {
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: make(back), transparent: true }));
+    const off = 0.5 + 0.012;
+    if (h.o) { m.position.set(back ? off : -off, 0, 0); m.rotation.y = back ? Math.PI / 2 : -Math.PI / 2; }
+    else { m.position.set(0, 0, back ? -off : off); m.rotation.y = back ? Math.PI : 0; }
+    g.add(m);
+  });
+  g.position.copy(ck.c);
+  return g;
+}
+function disposeChunk(g) { g.traverse(o => { if (o.isMesh) { o.material.map.dispose(); o.material.dispose(); } }); g.children[0] && g.children[0].geometry.dispose(); if (g.parent) g.parent.remove(g); }
+const frustum = new THREE.Frustum(), pm = new THREE.Matrix4();
+let lastLod = 0;
+function lod() {
+  pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(pm);
+  const k = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  const want = [];
+  for (const ck of chunks) {
+    const d = camera.position.distanceTo(ck.c); const px = k / d;
+    if (px >= 16 && frustum.containsPoint(ck.c)) want.push([d, ck]);
+  }
+  want.sort((a, b) => a[0] - b[0]);
+  const keep = new Set(want.slice(0, 500).map(x => x[1]));
+  active.forEach((g, ck) => { if (!keep.has(ck)) { disposeChunk(g); active.delete(ck); } });
+  let built = 0;
+  for (const ck of keep) { if (!active.has(ck) && built < 60) { const g = chunkMesh(ck); group.add(g); active.set(ck, g); built++; } }
+}
+
+/* ---------- 카메라 ---------- */
+function frame() {
+  const b = new THREE.Box3(); houses.forEach(h => { b.expandByPoint(new THREE.Vector3(h.x, h.y, h.z)); b.expandByPoint(h.o ? new THREE.Vector3(h.x + 1, h.y + h.H, h.z + h.W) : new THREE.Vector3(h.x + h.W, h.y + h.H, h.z + 1)); });
+  const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
+  const r = curView === 2 ? Math.max(s.y * 2.2, s.z * 1.6) : Math.max(s.x, s.y * 1.4, s.z) * 0.75;   // 전체 띠는 띠의 높이에 맞춰 가까이, 옆으로 끌어서 본다
+  const dir = new THREE.Vector3(0.75, 0.55, 1).normalize();
+  const dist = r / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 0.9;
+  controls.target.copy(c); camera.position.copy(c).addScaledVector(dir, dist); camera.near = Math.max(0.05, dist / 2000); camera.far = dist * 20; camera.updateProjectionMatrix(); controls.update();
+}
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize);
+
+/* ---------- 호버: 그 글자의 주소 ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function hit(e) {
+  const r = canvas.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hs = ray.intersectObjects(Object.values(instIndex), false); if (!hs.length) return null;
+  const it = hs[0].object.userData.list[hs[0].instanceId], p = hs[0].point;
+  const local = (it.h.o ? p.z - it.h.z : p.x - it.h.x) - it.b.x;
+  const ci = Math.max(0, Math.min(it.b.n - 1, Math.floor(local)));
+  return { it, g: it.b.g + ci, point: p };
+}
+const SEC_KO = { '詩': '시', '小說': '소설', '隨筆': '수필', '發掘': '발굴', '書簡·其他': '편지·기타' };
+function bar(hh) {
+  const el = $('bar');
+  if (!hh) { el.innerHTML = ''; return; }
+  const h = hh.it.h, w = h.w, g = hh.g, row = Math.floor(g / 20) + 1, col = g % 20 + 1;
+  el.innerHTML = '<b>' + w.addr + ' / ' + h.face + ' / ' + String(row).padStart(2, '0') + '-' + String(col).padStart(2, '0') + '</b><span>「' + w.title + '」 · ' + w.addrKo + ' · ' + row + '행 ' + col + '열 · 第' + (g + 1) + '字 · ' + ({ s: '옥탑방·단칸', m: '다세대', l: '세운상가형' })[h.ty] + '</span>';
+}
+let moveT = 0;
+canvas.addEventListener('pointermove', e => { const now = performance.now(); if (now - moveT < 40) return; moveT = now; bar(hit(e)); });
+canvas.addEventListener('pointerleave', () => bar(null));
+canvas.addEventListener('dblclick', e => {
+  const hh = hit(e); if (!hh) return;
+  const from = camera.position.clone().sub(controls.target).normalize();
+  controls.target.copy(hh.point); camera.position.copy(hh.point).addScaledVector(from, 22); controls.update();
+});
+
+/* ---------- 시작 ---------- */
+function setView(v) { curView = v; document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.v === v ? 'true' : 'false')); build(v); }
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => setView(+b.dataset.v)));
+resize(); setView(0); $('msg').remove();
+(function loop(t) { controls.update(); if (t - lastLod > 250) { lod(); lastLod = t; } renderer.render(scene, camera); requestAnimationFrame(loop); })(0);
+})();
+</script>
+</body>
+</html>
